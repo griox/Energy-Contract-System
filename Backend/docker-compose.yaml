@@ -1,0 +1,188 @@
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: energy_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB_Customer}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+
+  postgres-invoice:
+    image: postgres:16-alpine
+    container_name: energy_postgres_invoice
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres_invoice
+      - POSTGRES_PASSWORD=admin_invoice
+      - POSTGRES_DB=InvoiceDb
+    ports:
+      - "5435:5432" # Map ra cổng 5435
+    volumes:
+      - postgres_invoice_data:/var/lib/postgresql/data
+    
+
+  postgres-pdf:
+    image: postgres:16-alpine
+    container_name: energy_postgres_pdf
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER_PDF}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_PDF}
+      - POSTGRES_DB=${POSTGRES_DB_PDF}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_pdf_data:/var/lib/postgresql/data
+ 
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: energy_postgres_auth
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER_AUTH}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_AUTH}
+      - POSTGRES_DB=${POSTGRES_DB_Auth}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+  
+  minio:
+    image: minio/minio:latest
+    container_name: energy_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  rabbitmq:
+    image: rabbitmq:3-management # Bản management có giao diện web quản lý
+    container_name: energy_rabbitmq
+    ports:
+      - "5672:5672"   # Cổng giao tiếp cho Code (AMQP)
+      - "15672:15672" # Cổng giao diện Web (UI)
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  customer-api:
+    image: huyngoinfo/energy-customer-api:latest
+    container_name: energy_customer_api
+    restart: always
+    depends_on:
+      postgres-db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "5000:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres-db;Port=5432;Database=${POSTGRES_DB_Customer};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  pdf-service:
+    image: huyngoinfo/energy-pdf-service:latest
+    container_name: energy_pdf_service
+    restart: always
+    depends_on:
+      - postgres-pdf
+      - minio
+    env_file:
+      - .env
+    ports:
+      - "5001:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres-pdf;Port=5432;Database=${POSTGRES_DB_PDF};Username=${POSTGRES_USER_PDF};Password=${POSTGRES_PASSWORD_PDF}
+      - ASPNETCORE_ENVIRONMENT=Development 
+      - AWS__Region=${AWS_REGION}
+      - AWS__BucketName=${AWS_BUCKET_NAME}
+      - AWS__AccessKey=${AWS_ACCESS_KEY}
+      - AWS__SecretKey=${AWS_SECRET_KEY}
+      - AWS__ServiceURL=${AWS_SERVICE_URL}
+      - AWS__ForcePathStyle=${AWS_FORCE_PATH_STYLE:-true}
+      - CustomerServiceUrl=http://customer-api:8080 
+    volumes:
+      - pdf_temp:/app/temp
+  
+  auth-service:
+    image: huyngoinfo/energy-auth-service:latest
+    container_name: energy_auth_service
+    restart: always
+    depends_on:
+      postgres-auth:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "5002:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres-auth;Port=5432;Database=${POSTGRES_DB_Auth};Username=${POSTGRES_USER_AUTH};Password=${POSTGRES_PASSWORD_AUTH}
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  email-api:
+    image: huyngoinfo/energy-email-api:latest
+    container_name: energy_email_api
+    build:
+      context: .
+      dockerfile: src/EmailService/Api/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports: 
+      - "5003:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  invoice-api:
+    image: huyngoinfo/energy-invoice-api:latest
+    build:
+      context: .
+      dockerfile: src/InvoiceService/Api/Dockerfile
+    container_name: energy_invoice_api
+    depends_on:
+      postgres-invoice:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "5004:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres-invoice;Port=5432;Database=InvoiceDb;Username=postgres_invoice;Password=admin_invoice
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+   
+volumes:
+  postgres_data:
+  postgres_pdf_data:
+  postgres_auth_data:
+  pdf_temp:
+  minio_data:
+  postgres_invoice_data:

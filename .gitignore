@@ -1,0 +1,23 @@
+# Bỏ qua các thư mục build
+[Bb]in/
+[Oo]bj/
+
+# Bỏ qua file cấu hình riêng của Rider/Visual Studio
+.idea/
+.vs/
+*.user
+*.suo
+
+# Bỏ qua các thư mục package (NuGet sẽ tự restore)
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+.env
+.env.production
+appsettings.*.json
+!appsettings.json
+
+# Bỏ qua file log, file tạm
+*.log
+.DS_Store
