@@ -84,28 +84,21 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 
-// Cấu hình CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
-    });
-});
+
 builder.Services.AddMassTransit(x =>
 {
     x.UsingRabbitMq((context, cfg) =>
     {
-        // "rabbitmq" là tên service trong docker-compose
-        // Nếu chạy local rider thì dùng "localhost"
-        cfg.Host("rabbitmq", "/", h => 
+        // 👇 Đọc cấu hình từ biến môi trường thay vì hardcode
+        var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"]; 
+        
+        // Nếu không có cấu hình (chạy local mặc định)
+        if (string.IsNullOrEmpty(rabbitMqUrl)) 
         {
-            h.Username("guest");
-            h.Password("guest");
-        });
+            rabbitMqUrl = "amqp://guest:guest@localhost:5672";
+        }
+
+        cfg.Host(rabbitMqUrl);
     });
 });
 
@@ -125,7 +118,7 @@ app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseCors("AllowAll");
 // Auto migrate
 using (var scope = app.Services.CreateScope())
 {
