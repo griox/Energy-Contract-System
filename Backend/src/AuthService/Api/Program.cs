@@ -87,11 +87,13 @@ builder.Services.AddSwaggerGen(c =>
 // Cấu hình CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend",
-            b => b.WithOrigins("http://localhost:5173", "https://energycontract.vercel.app")
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials());
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
 });
 builder.Services.AddMassTransit(x =>
 {
