@@ -6,6 +6,7 @@ namespace Application.Interfaces
     {
         Task<Order> AddAsync(Order order);
         Task<List<Order>> GetAllAsync(int limit = 0);
+        Task<List<Order>> GetOrdersByUserEmailAsync(string email);
         Task<Order?> GetByIdAsync(int id);
         Task UpdateAsync(Order order);
         Task DeleteAsync(Order order);

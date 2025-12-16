@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Api.Common.Messaging.Contracts;
+using Application.Features.Orders.Commands.GetMyOrder;
 using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -62,6 +64,7 @@ try
     builder.Services.AddTransient<Application.Features.Contracts.Commands.GetContract.GetContractByIdHandler>();
     builder.Services.AddTransient<Application.Features.Contracts.Commands.GetContractsByChoice.GetContractsByChoiceHandler>();
     builder.Services.AddTransient<Application.Features.Contracts.Commands.DeleteContract.DeleteContractHandler>();
+    builder.Services.AddTransient<Application.Features.Contracts.Commands.GetContractByEmail.GetMyContractsHandler>();
     // Trong Program.cs
     builder.Services.AddScoped<Application.Features.Contracts.Commands.UpdatePdfUrl.UpdatePdfUrlHandler>();
 
@@ -82,13 +85,14 @@ try
     builder.Services.AddTransient<Application.Features.Orders.Commands.GetOrderById.GetOrderByIdHandler>();
     builder.Services.AddTransient<Application.Features.Orders.Commands.UpdateOrder.UpdateOrderHandler>();
     builder.Services.AddTransient<Application.Features.Orders.Commands.DeleteOrder.DeleteOrderHandler>();
+    builder.Services.AddScoped<GetMyOrdersHandler>();
 
     builder.Services.AddTransient<Application.Features.ContractHistories.Commands.CreateContractHistory.CreateContractHistoryHandler>();
     builder.Services.AddTransient<Application.Features.ContractHistories.Commands.GetHistoryByContractId.GetHistoryByContractIdHandler>();
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-
+    builder.Services.AddHttpContextAccessor();
     // ==========================================
     // SWAGGER VỚI BEARER TOKEN - SỬA LẠI
     // ==========================================
@@ -138,7 +142,8 @@ try
                     "http://localhost:5173",
                     "http://localhost:5174",
                     "http://127.0.0.1:5173",
-                    "http://127.0.0.1:5174"
+                    "http://127.0.0.1:5174",
+                    "https://energycontract.vercel.app"
                   )
                   .AllowAnyMethod()
                   .AllowAnyHeader()
@@ -150,13 +155,13 @@ try
     {
         x.UsingRabbitMq((context, cfg) =>
         {
-            // "rabbitmq" là tên service trong docker-compose
-            // Nếu chạy local rider thì dùng "localhost"
-            cfg.Host("rabbitmq", "/", h => 
+            cfg.Host("rabbitmq", "/", h => // nếu chạy local
             {
                 h.Username("guest");
                 h.Password("guest");
             });
+
+            cfg.Message<ContractChangedEvent>(m => m.SetEntityName("contract-changed"));
         });
     });
 

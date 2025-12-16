@@ -11,5 +11,6 @@ public interface IAuthService
     Task<UserResponse> GetMeAsync(int userId);
 
     Task<RefreshTokenResult> RefreshTokenAsync(string refreshToken);
-
+    Task<RegisterResult> RegisterAdminAsync(RegisterRequest request);
 }
+

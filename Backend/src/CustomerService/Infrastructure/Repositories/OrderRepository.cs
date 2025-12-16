@@ -85,5 +85,14 @@ namespace Infrastructure.Repositories
 
             return (items, totalCount);
         }
+
+        public async Task<List<Order>> GetOrdersByUserEmailAsync(string email)
+        {
+            return await _context.Orders
+                .Include(o=>o.Contract)
+                .Where(o=>o.Contract.Email.ToLower() == email.ToLower())
+                .OrderByDescending(o=>o.StartDate)
+                .ToListAsync();
+        }
     }
 }

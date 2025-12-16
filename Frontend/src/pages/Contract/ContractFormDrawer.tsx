@@ -103,7 +103,7 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
             bankAccountNumber: form.bankAccountNumber ?? "",
             resellerId: Number(form.resellerId) || 0,
             addressId: Number(form.addressId) || 0,
-            
+
             // Giữ logic format date như cũ hoặc dùng toISOString()
             startDate: form.startDate ? new Date(form.startDate).toISOString() : new Date().toISOString(),
             endDate: form.endDate ? new Date(form.endDate).toISOString() : new Date().toISOString(),
@@ -111,12 +111,12 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
             pdfLink: contractData?.pdfLink || "",
             // Các trường bắt buộc khác nếu API yêu cầu (giả định)
             contractNumber: contractData?.contractNumber || "AUTO-" + Date.now(),
-            
+
         };
 
         const mutationOptions = {
             onSuccess: () => {
-                toast.success(isEdit ? "Contract updated!" : "Contract created!");
+                // toast.success(isEdit ? "Contract updated!" : "Contract created!");
                 onSuccess?.();
                 onClose();
             },
@@ -222,9 +222,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
 
                         <Stack direction="row" justifyContent="flex-end" spacing={2}>
                             <Button onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-                            <Button 
-                                type="submit" 
-                                variant="contained" 
+                            <Button
+                                type="submit"
+                                variant="contained"
                                 disabled={isSubmitting}
                                 startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
                             >
@@ -235,6 +235,6 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                     </Stack>
                 </form>
             )}
-       </Drawer>
+        </Drawer>
     );
 }

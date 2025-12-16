@@ -13,6 +13,38 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
 
+  postgres-history:
+    image: postgres:16-alpine
+    container_name: energy_postgres_history
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER_HISTORY:-postgres_history}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_HISTORY:-admin_history}
+      - POSTGRES_DB=ContractHistoryDb
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_history_data:/var/lib/postgresql/data
+
+  contract-history-api:
+    build:
+      context: .
+      dockerfile: ./src/ContractHistoryService/Api/Dockerfile
+    image: huyngoinfo/energy-contract-history-api:latest
+    container_name: energy_contract_history_api
+    restart: always
+    depends_on:
+      - postgres-history
+      - rabbitmq
+    env_file:
+      - .env
+    ports:
+      - "5005:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres-history;Port=5432;Database=ContractHistoryDb;Username=${POSTGRES_USER_HISTORY:-postgres_history};Password=${POSTGRES_PASSWORD_HISTORY:-admin_history}
+      - ASPNETCORE_ENVIRONMENT=Development
+  
+      
   postgres-invoice:
     image: postgres:16-alpine
     container_name: energy_postgres_invoice
@@ -103,6 +135,8 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres-db;Port=5432;Database=${POSTGRES_DB_Customer};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       - ASPNETCORE_ENVIRONMENT=Development
+   
+    # ... các dòng khác giữ nguyên
 
   pdf-service:
     image: huyngoinfo/energy-pdf-service:latest
@@ -186,3 +220,4 @@ volumes:
   pdf_temp:
   minio_data:
   postgres_invoice_data:
+  postgres_history_data:

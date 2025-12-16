@@ -1,8 +1,10 @@
+using Api.Data;
 using Quartz;
 using MassTransit;
 using Api.Jobs;
-using InvoiceService.Api.Infrastructures.Data;
+using Api.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 // ... imports khác
 
@@ -16,19 +18,23 @@ builder.Services.AddQuartz(q =>
     q.AddJob<DailyInvoiceJob>(opts => opts.WithIdentity(jobKey));
 
     // Đăng ký Trigger (Chạy lúc 8:00 sáng mỗi ngày)
+    // Trong phần cấu hình Quartz
     q.AddTrigger(opts => opts
-        .ForJob(jobKey)
-        .WithIdentity("DailyInvoiceJob-trigger")
-        .WithCronSchedule("0 0 8 * * ?")); // Cron expression: Giây Phút Giờ ...
+            .ForJob(jobKey)
+            .WithIdentity("DailyInvoiceJob-trigger")
+            .WithCronSchedule("0 0 10 * * ?", x => x
+                .WithMisfireHandlingInstructionFireAndProceed()) 
+    ); 
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
 // 2. Cấu hình MassTransit
+// ...
 builder.Services.AddMassTransit(x =>
 {
-    // Consumer đồng bộ dữ liệu
-    x.AddConsumer<SyncContractConsumer>();
+    // Đổi sang Consumer mới
+    x.AddConsumer<Api.Consumers.SyncOrderConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -37,13 +43,14 @@ builder.Services.AddMassTransit(x =>
             h.Password("guest"); 
         });
 
-        // Queue nhận tin tạo hợp đồng để đồng bộ
-        cfg.ReceiveEndpoint("invoice-sync-contract", e =>
+        // Queue nhận tin tạo Order
+        cfg.ReceiveEndpoint("invoice-sync-order", e =>
         {
-            e.ConfigureConsumer<SyncContractConsumer>(context);
+            e.ConfigureConsumer<Api.Consumers.SyncOrderConsumer>(context);
         });
     });
 });
+// ...
 
 // ... Đăng ký DB, Controller ...
 // 1. Đăng ký InvoiceDbContext

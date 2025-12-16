@@ -2,12 +2,14 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { contractService } from "@/services/customerService/ContractService";
-import type { ContractQueryParams, CreateContractParams } from "@/types/contract";
+import type { ContractDto, ContractQueryParams, CreateContractParams, PagedResult } from "@/types/contract";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getUserRole } from "@/lib/authUtils";
 
 // --- Hook Tạo Hợp Đồng ---
 export const useCreateContract = () => {
     const queryClient = useQueryClient();
-
+    
     return useMutation({
         mutationFn: (data: CreateContractParams) => contractService.create(data),
         onSuccess: () => {
@@ -67,9 +69,46 @@ export const useDeleteContract = () => {
 
 // --- Hook Lấy Danh Sách ---
 export const useContracts = (params: ContractQueryParams) => {
+    const { accessToken } = useAuthStore();
+    const role = getUserRole(accessToken);
     return useQuery({
-        queryKey: ['contracts', params],
-        queryFn: () => contractService.getAll(params),
+        queryKey: ['contracts', params,role],
+        queryFn: async () => {
+            if (role === "Admin") {
+                return await contractService.getAll(params);
+            }
+            let allMyContracts = await contractService.getMyContracts();
+            if (params.search) {
+                const searchLower = params.search.toLowerCase();
+                allMyContracts = allMyContracts.filter(c => 
+                    c.contractNumber?.toLowerCase().includes(searchLower) ||
+                    c.firstName?.toLowerCase().includes(searchLower) ||
+                    c.lastName?.toLowerCase().includes(searchLower) ||
+                    c.email?.toLowerCase().includes(searchLower)
+                );
+            }
+            const pageNumber = params.pageNumber || 1;
+            const pageSize = params.pageSize || 10;
+            const totalCount = allMyContracts.length;
+            const totalPages = Math.ceil(totalCount / pageSize);
+
+            // Cắt mảng: Ví dụ trang 1 lấy 0-10, trang 2 lấy 10-20
+            const paginatedItems = allMyContracts.slice(
+                (pageNumber - 1) * pageSize, 
+                pageNumber * pageSize
+            );
+
+            // 4. Trả về cấu trúc PagedResult chuẩn để UI không bị lỗi
+            const result: PagedResult<ContractDto> = {
+                items: paginatedItems,
+                totalCount: totalCount,
+                pageNumber: pageNumber,
+                pageSize: pageSize,
+                totalPages: totalPages,
+            };
+
+            return result;
+        },
         placeholderData: keepPreviousData, // Giữ data cũ khi chuyển trang
         staleTime: 5000, // Data coi là mới trong 5s
     });
@@ -81,5 +120,13 @@ export const useContract = (id: number) => {
         queryKey: ['contract', id],
         queryFn: () => contractService.getById(id),
         enabled: !!id, // Chỉ chạy query này khi có id hợp lệ
+    });
+};
+export const useMyContracts = () => {
+    return useQuery({
+        queryKey: ['my-contracts'], // Key riêng biệt
+        queryFn: () => contractService.getMyContracts(),
+        staleTime: 1000 * 60, // Data được coi là mới trong 1 phút (vì user ít khi tự đổi hợp đồng liên tục)
+        retry: 1, // Thử lại 1 lần nếu lỗi mạng
     });
 };

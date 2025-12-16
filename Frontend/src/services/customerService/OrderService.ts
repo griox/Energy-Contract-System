@@ -36,5 +36,10 @@ export const orderService = {
     // 5. Delete (DELETE)
     delete: async (id: number): Promise<void> => {
         await api_customer.delete(`/orders/${id}`);
+    },
+    
+    getMyOrders: async (): Promise<OrderDto[]> => {
+        const response = await api_customer.get('/orders/me');
+        return response.data;
     }
 };

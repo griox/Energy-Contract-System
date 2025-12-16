@@ -32,6 +32,17 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Đăng ký thành công!" });
     }
+    [HttpPost("create-admin")] 
+    public async Task<IActionResult> CreateAdmin([FromBody] RegisterRequest request)
+    {
+        var result = await _authService.RegisterAdminAsync(request);
+        if (!result.Success)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = "Đăng ký thành công cho admin!" });
+    }
 
     // POST: api/auth/login
     [HttpPost("login")]

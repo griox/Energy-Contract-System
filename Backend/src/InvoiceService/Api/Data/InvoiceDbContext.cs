@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Api.Models; // Nơi chứa ContractSubscription
+using Api.Models;
 
-namespace InvoiceService.Api.Infrastructures.Data;
+namespace Api.Data;
 
 public class InvoiceDbContext : DbContext
 {
@@ -9,20 +9,19 @@ public class InvoiceDbContext : DbContext
     {
     }
 
-    // Khai báo bảng Subscriptions
-    public DbSet<ContractSubscription> Subscriptions { get; set; }
+    // Đổi từ Subscriptions sang InvoiceOrders
+    public DbSet<InvoiceOrder> InvoiceOrders { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Cấu hình thêm (nếu cần)
-        modelBuilder.Entity<ContractSubscription>(entity =>
+        modelBuilder.Entity<InvoiceOrder>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.ContractNumber).IsRequired();
+            entity.Property(e => e.OriginalOrderId).IsRequired();
             entity.Property(e => e.Email).IsRequired();
-            
+            entity.HasIndex(e => e.EndDate); // Đánh index để Job quét nhanh hơn
         });
     }
 }

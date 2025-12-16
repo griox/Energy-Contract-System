@@ -1,11 +1,14 @@
+using Api.Data;
 using Quartz;
 using MassTransit;
 using Shared.Events;
 using Microsoft.EntityFrameworkCore;
-using InvoiceService.Api.Infrastructures.Data;
+using Api.Data;
+using Api.Models;
+
 namespace Api.Jobs;
 
-[DisallowConcurrentExecution] // Chặn chạy chồng chéo nếu job cũ chưa xong
+[DisallowConcurrentExecution]
 public class DailyInvoiceJob : IJob
 {
     private readonly InvoiceDbContext _context;
@@ -21,34 +24,52 @@ public class DailyInvoiceJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
-        var today = DateTime.UtcNow.Date; // Lấy ngày hôm nay
-        int currentDay = today.Day;       // Ví dụ: Hôm nay là ngày 10
+        var today = DateTime.UtcNow.Date;
+        
+        // Logic: Nhắc trước 1 ngày so với EndDate
+        // Ví dụ: Hôm nay 10/12 -> Cần nhắc những thằng hết hạn ngày 11/12
+        var targetDate = today.AddDays(1);
 
-        _logger.LogInformation($"--- BẮT ĐẦU QUÉT HÓA ĐƠN NGÀY {currentDay} ---");
+        _logger.LogInformation($"--- BẮT ĐẦU QUÉT HÓA ĐƠN HẾT HẠN NGÀY {targetDate:dd/MM/yyyy} ---");
 
-        // Logic: Lấy các hợp đồng có PaymentDay trùng hôm nay VÀ còn hạn
-        var dueContracts = await _context.Subscriptions
-            .Where(x => x.IsActive 
-                        && x.PaymentDay == currentDay 
-                        && x.StartDate <= today 
-                        && x.EndDate >= today)
+        // Lấy các Order sắp hết hạn vào ngày mai VÀ chưa gửi thông báo
+        var dueOrders = await _context.InvoiceOrders
+            .Where(x => x.EndDate.Date == targetDate 
+                        && x.Status == "Unpaid" // Chỉ nhắc những đơn chưa trả
+                        && !x.IsReminderSent)   // Tránh gửi lại nhiều lần
             .ToListAsync();
 
-        foreach (var sub in dueContracts)
+        foreach (var order in dueOrders)
         {
-            // Bắn tin nhắn sang RabbitMQ để EmailService gửi mail
-            await _publishEndpoint.Publish(new InvoiceReminderEvent
+            try 
             {
-                ContractNumber = sub.ContractNumber,
-                Email = sub.Email,
-                FullName = sub.FullName,
-                DueDate = today.AddDays(7), // Hạn đóng là 7 ngày sau
-                Amount = 500000 // Giả sử số tiền hoặc lấy từ DB
-            });
-            
-            _logger.LogInformation($"Đã tạo hóa đơn cho: {sub.Email}");
+                // 1. Bắn sự kiện gửi mail
+                await _publishEndpoint.Publish(new InvoiceReminderEvent
+                {
+                    ContractNumber = order.ContractNumber,
+                    Email = order.Email,
+                    FullName = order.FullName,
+                    DueDate = order.EndDate, // Hạn chót là ngày mai
+                    Amount = order.Amount,
+                    Description = $"Nhắc nhở thanh toán cho đơn hàng #{order.OriginalOrderId}"
+                });
+
+                // 2. Đánh dấu đã gửi để không gửi lại nếu job chạy lại
+                order.IsReminderSent = true;
+                _logger.LogInformation($"Đã gửi nhắc nhở cho Order #{order.OriginalOrderId} - {order.Email}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Lỗi gửi mail cho Order #{order.OriginalOrderId}");
+            }
+        }
+
+        // Lưu trạng thái IsReminderSent vào DB
+        if (dueOrders.Any())
+        {
+            await _context.SaveChangesAsync();
         }
         
-        _logger.LogInformation($"--- KẾT THÚC QUÉT. TỔNG: {dueContracts.Count} ---");
+        _logger.LogInformation($"--- KẾT THÚC. ĐÃ GỬI: {dueOrders.Count} EMAIL ---");
     }
 }

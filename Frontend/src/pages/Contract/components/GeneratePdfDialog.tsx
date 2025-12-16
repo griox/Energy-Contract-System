@@ -137,17 +137,22 @@ export default function GeneratePdfDialog({ open, onClose, contract, onGenerate,
 
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose} color="inherit" disabled={loading}>Cancel</Button>
-        
-        {/* [NEW] Button Loading State */}
-        <Button 
-          onClick={handleConfirm} 
-          variant="contained" 
-          color="primary"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
-        >
-          {loading ? "Generating..." : "Generate PDF"}
-        </Button>
+        {/* Ẩn nút khi loading */}
+        {!loading && (
+          <Button 
+            onClick={handleConfirm} 
+            variant="contained" 
+            color="primary"
+          >
+            Generate PDF
+          </Button>
+        )}
+        {/* Nếu muốn hiện loading spinner thay cho nút: */}
+        {loading && (
+          <Button variant="contained" color="primary" disabled startIcon={<CircularProgress size={20} color="inherit" />}>
+            Generating...
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

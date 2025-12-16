@@ -110,7 +110,7 @@ const Header: React.FC = () => {
                 <div onClick={(e) => {
                     // Check if the click target is the "Sign in" link inside the form
                     const target = e.target as HTMLElement;
-                    if (target.tagName === 'A' && target.getAttribute('href') === '/signin') {
+                    if (target.tagName === 'A' && target.getAttribute('href') === '/') {
                         handleSwitchToLogin(e as unknown as React.MouseEvent);
                     }
                 }}>

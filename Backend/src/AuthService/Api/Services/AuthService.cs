@@ -232,6 +232,52 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task<RegisterResult> RegisterAdminAsync(RegisterRequest request)
+    {
+        try
+        {
+            // 1. Kiểm tra Username tồn tại chưa
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+            {
+                _logger.LogError($"Username {request.Username} is already taken");
+                throw new Exception("Username already exists.");
+            }
+
+            // 2. Hash mật khẩu
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+            // 3. Tạo User với Role là "Admin"
+            var user = new User
+            {
+                Username = request.Username,
+                Email = request.Email,
+                PasswordHash = passwordHash,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                Role = "Admin" 
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+        
+            _logger.LogInformation($"Admin user {user.Username} created successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error registering admin: {ex.Message}");
+            return new RegisterResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+        }
+
+        return new RegisterResult
+        {
+            Success = true
+        };
+    }
+
     private string CreateAccessToken(User user)
     {
         // Tạo claims chứa thông tin user

@@ -88,7 +88,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
-            b => b.WithOrigins("http://localhost:5173")
+            b => b.WithOrigins("http://localhost:5173", "https://energycontract.vercel.app")
                 .AllowAnyMethod()
                 .AllowAnyHeader()
                 .AllowCredentials());

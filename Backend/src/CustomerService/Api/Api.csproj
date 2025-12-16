@@ -5,6 +5,8 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <ProjectName>CustomerService.Api</ProjectName>
+        <AssemblyName>CustomerService.Api</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,3 +1,13 @@
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+}
+
+
 :root {
   --bg: #f5f7fa;          /* nền tổng thể */
   --bg2: #ffffff;         /* nền sidebar / card */

@@ -35,5 +35,11 @@ export const contractService = {
     // 4. Delete (DELETE)
     delete: async (id: number): Promise<void> => {
         await api_customer.delete(`/contracts/${id}`);
+    },
+    
+    getMyContracts: async (): Promise<ContractDto[]> => {
+        // Gọi vào endpoint /me, Backend sẽ tự lấy email từ Token
+        const response = await api_customer.get('/contracts/me');
+        return response.data;
     }
 };

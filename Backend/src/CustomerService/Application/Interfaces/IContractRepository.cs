@@ -7,6 +7,7 @@ public interface IContractRepository
     Task<Contract> AddContract(Contract contract);
     Task<Contract?> GetContractById(int id);
     Task<Contract?> GetContractByNumberAsync(string contractNumber);
+    Task<List<Contract>> GetContractsByEmailAsync(string email);
     Task UpdateContract(Contract contract);
     Task DeleteContract(Contract contract); 
     Task <List<Contract>> GetAllContracts(int limit = 0);

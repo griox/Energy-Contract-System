@@ -10,5 +10,7 @@
         public DateTime EndDate { get; set; }
         public decimal TopupFee { get; set; }
         public int ContractId { get; set; }
+        
+        public string? ContractNumber { get; set; } // Thêm thuộc tính này để hiển thị ContractNumber
     }
 }

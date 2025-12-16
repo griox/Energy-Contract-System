@@ -87,7 +87,7 @@ export function SignupForm({
               <FieldLabel htmlFor="firstname">First Name</FieldLabel>
               <Input
                   id="firstname"
-                  placeholder="John"
+                  placeholder="your first name"
                   {...register("firstname")}
                   className={errors.firstname ? "border-red-500 focus-visible:ring-red-500" : ""}
               />
@@ -97,7 +97,7 @@ export function SignupForm({
               <FieldLabel htmlFor="lastname">Last Name</FieldLabel>
               <Input
                   id="lastname"
-                  placeholder="Doe"
+                  placeholder="your last name"
                   {...register("lastname")}
                   className={errors.lastname ? "border-red-500 focus-visible:ring-red-500" : ""}
               />
@@ -110,7 +110,7 @@ export function SignupForm({
             <FieldLabel htmlFor="username">Username</FieldLabel>
             <Input
                 id="username"
-                placeholder="johndoe123"
+                placeholder="tranhalinh"
                 {...register("username")}
                 className={errors.username ? "border-red-500 focus-visible:ring-red-500" : ""}
             />
