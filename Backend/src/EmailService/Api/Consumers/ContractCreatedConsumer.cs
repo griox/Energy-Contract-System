@@ -128,12 +128,14 @@ public class ContractCreatedConsumer : IConsumer<ContractCreatedEvent>
 
             message.Body = bodyBuilder.ToMessageBody();
 
+            // 👇 SỬA ĐOẠN NÀY ĐỂ FIX LỖI TIMEOUT & SSL
             using var client = new SmtpClient();
-            
-            // Sử dụng thông tin từ cấu hình
-            await client.ConnectAsync(smtpHost, smtpPort, false);
-            await client.AuthenticateAsync(senderEmail, appPassword);
+            client.Timeout = 10000; // Tăng timeout lên 10s
 
+            // Dùng StartTls cho port 587
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+            
+            await client.AuthenticateAsync(senderEmail, appPassword);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 

@@ -109,14 +109,18 @@ public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
 
             message.Body = bodyBuilder.ToMessageBody();
 
-            // 4. Gửi Mail (Giữ nguyên)
+            // 👇 SỬA ĐOẠN NÀY ĐỂ FIX LỖI TIMEOUT & SSL
             using var client = new SmtpClient();
-            await client.ConnectAsync(smtpHost, smtpPort, false);
+            client.Timeout = 10000; // Tăng timeout lên 10s
+
+            // Dùng StartTls cho port 587
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+            
             await client.AuthenticateAsync(senderEmail, appPassword);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation($"✅ Email sent to {msg.Email}");
+            _logger.LogInformation($"✅ Đã gửi mail thành công tới {msg.Email}");
         }
         catch (Exception ex)
         {

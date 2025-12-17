@@ -75,8 +75,15 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
             message.Body = bodyBuilder.ToMessageBody();
 
             // 3. Gửi Mail
+          // 3. Gửi Mail (PHẦN QUAN TRỌNG ĐÃ SỬA) 👇
             using var client = new SmtpClient();
-            await client.ConnectAsync(smtpHost, smtpPort, false);
+            
+            // Tăng timeout lên 10 giây để tránh lỗi mạng chập chờn trên Cloud
+            client.Timeout = 10000; 
+
+            // Kết nối với chế độ StartTls (Chuẩn cho Port 587 của Gmail)
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+            
             await client.AuthenticateAsync(senderEmail, appPassword);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);

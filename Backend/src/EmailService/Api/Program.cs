@@ -58,4 +58,5 @@ builder.Services.AddMassTransit(x =>
 });
 
 var app = builder.Build();
+app.MapGet("/", () => "Email Service is running properly!");
 app.Run();
