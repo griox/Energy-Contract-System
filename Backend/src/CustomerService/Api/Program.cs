@@ -141,23 +141,28 @@ try
             policy.AllowAnyOrigin()
                 .AllowAnyMethod()
                 .AllowAnyHeader()
-                .AllowCredentials();
+                
         });
     });
     // Cấu hình RabbitMQ Producer
     builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
     {
-        x.UsingRabbitMq((context, cfg) =>
+        // 👇 Đọc từ biến môi trường
+        var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"]; 
+        
+        // Fallback cho local (nếu không có biến môi trường thì dùng localhost)
+        if (string.IsNullOrEmpty(rabbitMqUrl)) 
         {
-            cfg.Host("rabbitmq", "/", h => // nếu chạy local
-            {
-                h.Username("guest");
-                h.Password("guest");
-            });
+            rabbitMqUrl = "amqp://guest:guest@localhost:5672";
+        }
 
-            cfg.Message<ContractChangedEvent>(m => m.SetEntityName("contract-changed"));
-        });
+        cfg.Host(rabbitMqUrl); // MassTransit sẽ tự parse username/password từ URL này
+
+        cfg.Message<ContractChangedEvent>(m => m.SetEntityName("contract-changed"));
     });
+});
 
     var app = builder.Build();
 

@@ -22,8 +22,7 @@ WORKDIR /src
 # 👇 QUAN TRỌNG: Sửa đường dẫn COPY cho đúng cấu trúc thư mục
 COPY ["Backend/src/PdfService/Api/Api.csproj", "Backend/src/PdfService/Api/"]
 
-# Nếu PdfService có dùng Shared, bỏ comment dòng dưới:
-# COPY ["Backend/src/Shared/Shared.csproj", "Backend/src/Shared/"]
+
 
 # Restore
 RUN dotnet restore "Backend/src/PdfService/Api/Api.csproj"
