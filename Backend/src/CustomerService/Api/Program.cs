@@ -140,7 +140,7 @@ try
         {
             policy.AllowAnyOrigin()
                 .AllowAnyMethod()
-                .AllowAnyHeader()
+                .AllowAnyHeader();
                 
         });
     });
