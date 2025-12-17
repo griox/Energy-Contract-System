@@ -125,6 +125,6 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AuthDBContext>();
     db.Database.Migrate();
 }
-
+app.MapGet("/", () => "Auth Service is running!");
 app.MapControllers();
 app.Run();

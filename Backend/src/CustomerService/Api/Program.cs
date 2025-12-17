@@ -206,7 +206,7 @@ try
             context.Database.Migrate();
         }
     }
-
+    app.MapGet("/", () => "Customer Service is running!");
     app.Run();
 }
 catch (Exception ex)

@@ -219,6 +219,7 @@ try
     app.UseAuthorization();
     app.MapControllers();
     Log.Information("PdfService started successfully with AWS S3 storage");
+    app.MapGet("/", () => "PDF Service is running!");
     app.Run();
 }
 catch (Exception ex)
