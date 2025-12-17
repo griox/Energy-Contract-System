@@ -96,7 +96,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.UsingRabbitMq((context, cfg) =>
     {
-        // 👇 Đọc cấu hình từ biến môi trường thay vì hardcode
+        // 👇 Đọc cấu hình từ biến môi trường
         var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"]; 
         
         // Nếu không có cấu hình (chạy local mặc định)
@@ -105,7 +105,8 @@ builder.Services.AddMassTransit(x =>
             rabbitMqUrl = "amqp://guest:guest@localhost:5672";
         }
 
-        cfg.Host(rabbitMqUrl);
+      
+        cfg.Host(new Uri(rabbitMqUrl));
     });
 });
 

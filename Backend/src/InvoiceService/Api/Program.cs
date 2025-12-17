@@ -44,7 +44,8 @@ builder.Services.AddMassTransit(x =>
             rabbitMqUrl = "amqp://guest:guest@localhost:5672";
         }
         
-        cfg.Host(rabbitMqUrl);
+        // 👇 SỬA Ở ĐÂY: Bọc nó vào new Uri()
+        cfg.Host(new Uri(rabbitMqUrl));
 
         // Queue nhận tin tạo Order
         cfg.ReceiveEndpoint("invoice-sync-order", e =>

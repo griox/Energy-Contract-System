@@ -3,13 +3,10 @@ using MassTransit;
 using Api.Consumers;
 using EmailService.Api.Consumers;
 using Shared.Events;
-// Add any missing using statements for services, e.g., Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register additional services if needed (e.g., DbContext, email service)
-// Example: builder.Services.AddDbContext<YourDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-// Example: builder.Services.AddScoped<IEmailService, EmailService>();
+// ... (các phần register khác giữ nguyên)
 
 // Cấu hình MassTransit RabbitMQ
 builder.Services.AddMassTransit(x =>
@@ -17,11 +14,11 @@ builder.Services.AddMassTransit(x =>
     // Đăng ký Consumer vừa tạo
     x.AddConsumer<ContractCreatedConsumer>();
     x.AddConsumer<AccountCreatedConsumer>();
-    x.AddConsumer<InvoiceReminderConsumer>();  // Ensure this is defined and registered
+    x.AddConsumer<InvoiceReminderConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        // Cấu hình kết nối RabbitMQ (Lấy từ docker-compose)
+        // Cấu hình kết nối RabbitMQ (Lấy từ docker-compose hoặc env var)
         var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"];
         
         // Fallback cho local
@@ -30,9 +27,21 @@ builder.Services.AddMassTransit(x =>
             rabbitMqUrl = "amqp://guest:guest@localhost:5672";
         }
 
-        cfg.Host(rabbitMqUrl);
+        // --- SỬA Ở ĐÂY ---
+        // Bọc rabbitMqUrl vào trong "new Uri(...)"
+        try 
+        {
+            cfg.Host(new Uri(rabbitMqUrl));
+        }
+        catch (Exception ex)
+        {
+            // Log ra để biết nếu url bị sai format
+            Console.WriteLine($"Lỗi cấu hình RabbitMQ URL: {rabbitMqUrl}. Chi tiết: {ex.Message}");
+            throw; 
+        }
+        // -----------------
 
-        // Cấu hình hàng đợi (Queue)
+        // Cấu hình hàng đợi (Queue) - Giữ nguyên
         cfg.ReceiveEndpoint("contract-created-queue", e =>
         {
             e.ConfigureConsumer<ContractCreatedConsumer>(context);
@@ -50,4 +59,3 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 app.Run();
-    

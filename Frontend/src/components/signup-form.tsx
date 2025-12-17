@@ -70,7 +70,6 @@ export function SignupForm({
       {
         // 3. XỬ LÝ KHI THÀNH CÔNG
         onSuccess: () => {
-          alert("Đăng ký thành công!");
           
           // === LỰA CHỌN 1: Chuyển về Modal Login (UX tốt cho Popup) ===
           if (onSwitchToLogin) {
@@ -85,7 +84,7 @@ export function SignupForm({
         },
         onError: (error: any) => {
           console.error(error);
-          alert("Đăng ký thất bại.");
+        
         }
       }
     );
