@@ -84,13 +84,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.SetIsOriginAllowed(origin => true) // ✅ Chấp nhận mọi Origin một cách dynamic (fix lỗi wildcard + credentials)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials(); // ✅ Cho phép gửi Cookie/Auth Header
-    });
+    options.AddPolicy("AllowFrontend",
+            b => b.WithOrigins("http://localhost:5173", "https://energy-contract-system-six.vercel.app")
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials());
 });
 
 
