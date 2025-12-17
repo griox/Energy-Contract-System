@@ -184,7 +184,7 @@ try
         });
     }
 
-    app.UseCors();
+    app.UseCors("AllowAll");
     app.UseHttpsRedirection();
     
     // ⚠️ QUAN TRỌNG: Thứ tự phải đúng!

@@ -22,11 +22,15 @@ builder.Services.AddMassTransit(x =>
     x.UsingRabbitMq((context, cfg) =>
     {
         // Cấu hình kết nối RabbitMQ (Lấy từ docker-compose)
-        cfg.Host("rabbitmq", "/", h =>
+        var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"];
+        
+        // Fallback cho local
+        if (string.IsNullOrEmpty(rabbitMqUrl))
         {
-            h.Username("guest");
-            h.Password("guest");
-        });
+            rabbitMqUrl = "amqp://guest:guest@localhost:5672";
+        }
+
+        cfg.Host(rabbitMqUrl);
 
         // Cấu hình hàng đợi (Queue)
         cfg.ReceiveEndpoint("contract-created-queue", e =>

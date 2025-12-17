@@ -38,10 +38,13 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("rabbitmq", "/", h => { 
-            h.Username("guest"); 
-            h.Password("guest"); 
-        });
+        var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"];
+        if (string.IsNullOrEmpty(rabbitMqUrl))
+        {
+            rabbitMqUrl = "amqp://guest:guest@localhost:5672";
+        }
+        
+        cfg.Host(rabbitMqUrl);
 
         // Queue nhận tin tạo Order
         cfg.ReceiveEndpoint("invoice-sync-order", e =>
