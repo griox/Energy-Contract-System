@@ -3,7 +3,7 @@ using Shared.Events;
 using MailKit.Net.Smtp;
 using MimeKit;
 using System.Globalization;
-
+using MailKit.Security;
 namespace Api.Consumers;
 
 public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>

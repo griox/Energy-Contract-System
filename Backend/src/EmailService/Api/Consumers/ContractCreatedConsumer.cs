@@ -3,7 +3,7 @@ using MassTransit;
 using MimeKit;
 using MailKit.Net.Smtp;
 using Shared.Events;
-
+using MailKit.Security;
 namespace Api.Consumers;
 
 public class ContractCreatedConsumer : IConsumer<ContractCreatedEvent>

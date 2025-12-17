@@ -2,7 +2,7 @@ using MassTransit;
 using Shared.Events;
 using MailKit.Net.Smtp;
 using MimeKit;
-
+using MailKit.Security;
 namespace EmailService.Api.Consumers;
 
 public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
