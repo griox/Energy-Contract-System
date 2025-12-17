@@ -24,15 +24,29 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
         try
         {
-            // 🔴 PHẦN HARD CODE (TEST CỨNG) 🔴
-            // Bỏ qua _configuration để test trực tiếp
-            var senderName = "Energy System";
-            var senderEmail = "nh920211@gmail.com"; // Email đăng nhập Brevo
-            var appPassword = "xsmtpsib-7e58567bd7f097083a167b6d155a0690af07328772211f0cd205f77af438bee8-eZu6BHzGjsNB75ED"; 
-            var smtpHost = "smtp-relay.brevo.com";
-            var smtpPort = 2525; // Dùng Port 2525 để tránh bị chặn
+            // 1. Đọc cấu hình (QUAN TRỌNG: Kiểm tra null)
+            var senderName = _configuration["EmailSettings:SenderName"] ?? "Energy System";
+            // BẮT BUỘC: SenderEmail phải trùng với mail đăng nhập Brevo
+            var senderEmail = _configuration["EmailSettings:SenderEmail"]; 
+            
+            // Key Brevo lấy từ Env
+            var appPassword = _configuration["EmailSettings:AppPassword"]; 
+            
+            // Cấu hình cứng Host và Port của Brevo (Khỏi lo Env sai)
+            var smtpHost = "smtp-relay.brevo.com"; 
+            var smtpPort = 2525; // Port thần thánh
 
+            // Link Frontend
             var loginLink = "https://energy-contract-system-six.vercel.app"; 
+
+            // Debug log (Che mật khẩu)
+            _logger.LogInformation($"[CONFIG CHECK] Sender: {senderEmail}");
+            _logger.LogInformation($"[CONFIG CHECK] Key Length: {appPassword?.Length ?? 0}");
+
+            if (string.IsNullOrEmpty(appPassword) || string.IsNullOrEmpty(senderEmail))
+            {
+                throw new Exception("❌ Cấu hình Email hoặc Password đang bị TRỐNG trên Render!");
+            }
 
             // 2. Tạo nội dung Email
             var message = new MimeMessage();
@@ -79,30 +93,23 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
             // 3. Gửi Mail
             using var client = new SmtpClient();
-            client.Timeout = 10000; // 10 giây
+            client.Timeout = 10000;
 
-            // Log ra để kiểm chứng
-            _logger.LogInformation($"[DEBUG HARDCODE] Host: {smtpHost}:{smtpPort}");
-            _logger.LogInformation($"[DEBUG HARDCODE] User: {senderEmail}");
-            _logger.LogInformation($"[DEBUG HARDCODE] Pass Length: {appPassword.Length} chars");
-
-            _logger.LogInformation("Connecting...");
-            // Dùng Auto để nó tự chọn Ssl/StartTls
+            _logger.LogInformation($"[CONNECT] {smtpHost}:{smtpPort}");
             await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.Auto);
 
-            _logger.LogInformation("Authenticating...");
-            // Đăng nhập bằng thông tin cứng
+            _logger.LogInformation("[AUTH] Đang đăng nhập...");
+            // Dùng chính email sender để login
             await client.AuthenticateAsync(senderEmail, appPassword);
 
-            _logger.LogInformation("Sending...");
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation($"✅ [SUCCESS] TEST CỨNG THÀNH CÔNG! Gửi tới {msg.Email}");
+            _logger.LogInformation($"✅ [SUCCESS] Đã gửi mail thành công tới {msg.Email}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"❌ [HARDCODE FAIL] Lỗi: {ex.Message}");
+            _logger.LogError(ex, $"❌ [ERROR] Lỗi gửi mail: {ex.Message}");
         }
     }
 }
