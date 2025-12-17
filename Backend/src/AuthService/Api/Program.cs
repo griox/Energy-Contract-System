@@ -84,10 +84,13 @@ builder.Services.AddSwaggerGen(c =>
 });
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        b => b.AllowAnyOrigin()
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true) // ✅ Chấp nhận mọi Origin một cách dynamic (fix lỗi wildcard + credentials)
+              .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowCredentials(); // ✅ Cho phép gửi Cookie/Auth Header
+    });
 });
 
 
@@ -119,7 +122,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.UseCors("AllowAll");    
+app.UseCors("AllowFrontend");    
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
