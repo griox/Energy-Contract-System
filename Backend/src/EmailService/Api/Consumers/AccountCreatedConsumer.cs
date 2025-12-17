@@ -83,7 +83,7 @@ try
 {
     _logger.LogInformation("1. Bắt đầu kết nối tới SMTP Server...");
     // BẮT BUỘC DÙNG CẶP ĐÔI: Port 587 + StartTls
-    await client.ConnectAsync(smtpHost, smtpPort, MailKit.Security.SecureSocketOptions.StartTls);
+    await client.ConnectAsync(smtpHost, smtpPort, MailKit.Security.SecureSocketOptions.SslOnConnect);
     _logger.LogInformation("2. Kết nối thành công. Đang đăng nhập...");
 
     await client.AuthenticateAsync(senderEmail, appPassword);
