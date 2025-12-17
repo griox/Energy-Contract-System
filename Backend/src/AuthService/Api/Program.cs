@@ -82,7 +82,13 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        b => b.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
 
 
 builder.Services.AddMassTransit(x =>
@@ -113,11 +119,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseCors("AllowAll");    
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseCors("AllowAll");
+
 // Auto migrate
 using (var scope = app.Services.CreateScope())
 {
