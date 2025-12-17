@@ -74,21 +74,32 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
             message.Body = bodyBuilder.ToMessageBody();
 
-            // 3. Gửi Mail
-          // 3. Gửi Mail (PHẦN QUAN TRỌNG ĐÃ SỬA) 👇
-            using var client = new SmtpClient();
-            
-            // Tăng timeout lên 10 giây để tránh lỗi mạng chập chờn trên Cloud
-            client.Timeout = 10000; 
+           // ... (đoạn tạo message giữ nguyên)
 
-            // Kết nối với chế độ StartTls (Chuẩn cho Port 587 của Gmail)
-            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
-            
-            await client.AuthenticateAsync(senderEmail, appPassword);
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+using var client = new SmtpClient();
+client.Timeout = 20000; // Tăng lên 20 giây xem sao
 
-            _logger.LogInformation($"✅ Đã gửi mail chào mừng tới {msg.Email}");
+try 
+{
+    _logger.LogInformation("1. Bắt đầu kết nối tới SMTP Server...");
+    // BẮT BUỘC DÙNG CẶP ĐÔI: Port 587 + StartTls
+    await client.ConnectAsync(smtpHost, smtpPort, MailKit.Security.SecureSocketOptions.StartTls);
+    _logger.LogInformation("2. Kết nối thành công. Đang đăng nhập...");
+
+    await client.AuthenticateAsync(senderEmail, appPassword);
+    _logger.LogInformation("3. Đăng nhập thành công. Đang gửi mail...");
+
+    await client.SendAsync(message);
+    _logger.LogInformation("4. Gửi mail xong!");
+
+    await client.DisconnectAsync(true);
+    _logger.LogInformation($"✅ QUY TRÌNH HOÀN TẤT CHO EMAIL: {msg.Email}");
+}
+catch (Exception ex)
+{
+    // Log lỗi chi tiết
+    _logger.LogError($"❌ CHẾT TẠI BƯỚC NÀO ĐÓ: {ex.Message}");
+}
         }
         catch (Exception ex)
         {
