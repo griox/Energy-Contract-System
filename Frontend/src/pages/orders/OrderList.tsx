@@ -85,10 +85,22 @@ export default function OrderList() {
     // ==========================
     // API HOOKS
     // ==========================
-    const ordersQuery = useOrders({
+   const ordersQuery = useOrders({
         search: search || undefined,
-        status: status === "" ? undefined : status,
-        orderType: orderType === "" ? undefined : orderType,
+        
+        // SỬA Ở ĐÂY:
+        // 1. Kiểm tra null/undefined/rỗng
+        // 2. Number() để chuyển chuỗi thành số
+        // 3. as unknown as OrderStatus để ép kiểu số đó về kiểu Enum
+        status: (status === "" || status === undefined) 
+            ? undefined 
+            : (Number(status) as unknown as OrderStatus),
+
+        // SỬA Ở ĐÂY TƯƠNG TỰ:
+        orderType: (orderType === "" || orderType === undefined) 
+            ? undefined 
+            : (Number(orderType) as unknown as OrderType),
+
         pageNumber: page,
         pageSize: PAGE_SIZE,
         sortBy,
