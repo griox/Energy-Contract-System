@@ -2,7 +2,8 @@ using MassTransit;
 using Shared.Events;
 using MailKit.Net.Smtp;
 using MimeKit;
-using MailKit.Security;
+using MailKit.Security; // Bắt buộc cho Brevo
+
 namespace EmailService.Api.Consumers;
 
 public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
@@ -26,18 +27,21 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
             // 1. Đọc cấu hình Email
             var senderName = _configuration["EmailSettings:SenderName"];
             var senderEmail = _configuration["EmailSettings:SenderEmail"];
-            var appPassword = _configuration["EmailSettings:AppPassword"];
-            var smtpHost = _configuration["EmailSettings:SmtpHost"];
-            var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"]!);
+            var appPassword = _configuration["EmailSettings:AppPassword"]; // Key Brevo
+            var smtpHost = _configuration["EmailSettings:SmtpHost"];       // smtp-relay.brevo.com
+            var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"]!); // 587
 
-            // 2. Tạo nội dung Email (HTML đẹp)
+            // 👇 QUAN TRỌNG: Thay localhost bằng link Frontend thật trên Render
+            // Ví dụ: https://my-energy-app.onrender.com/login
+            var loginLink = "https://energy-contract-system-six.vercel.app"; 
+
+            // 2. Tạo nội dung Email
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(senderName, senderEmail));
             message.To.Add(new MailboxAddress(msg.FullName, msg.Email));
             message.Subject = "Chào mừng bạn đến với Energy System! 🎉";
 
             var bodyBuilder = new BodyBuilder();
-            // Sử dụng Template "Welcome"
             bodyBuilder.HtmlBody = $@"
             <!DOCTYPE html>
             <html>
@@ -62,7 +66,7 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
                         <p>Tài khoản của bạn đã sẵn sàng. Bạn có thể đăng nhập ngay bây giờ để quản lý hợp đồng năng lượng của mình.</p>
                         
                         <div style='text-align: center;'>
-                            <a href='http://localhost:5173/login' class='btn' style='color: #ffffff;'>Đăng Nhập Ngay</a>
+                            <a href='{loginLink}' class='btn' style='color: #ffffff;'>Đăng Nhập Ngay</a>
                         </div>
                     </div>
                     <div class='footer'>
@@ -74,37 +78,29 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
             message.Body = bodyBuilder.ToMessageBody();
 
-           // ... (đoạn tạo message giữ nguyên)
+            // 3. Gửi Mail qua Brevo
+            using var client = new SmtpClient();
+            client.Timeout = 10000; // 10 giây
 
-using var client = new SmtpClient();
-client.Timeout = 20000; 
+            // Kết nối Brevo (Port 587 + StartTls)
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
 
+            // Đăng nhập
+            await client.AuthenticateAsync(senderEmail, appPassword);
 
-try 
-{
-    _logger.LogInformation("1. Bắt đầu kết nối tới SMTP Server...");
-    // BẮT BUỘC DÙNG CẶP ĐÔI: Port 587 + StartTls
-    await client.ConnectAsync(smtpHost, smtpPort, MailKit.Security.SecureSocketOptions.SslOnConnect);
-    _logger.LogInformation("2. Kết nối thành công. Đang đăng nhập...");
+            // Gửi và ngắt kết nối
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
 
-    await client.AuthenticateAsync(senderEmail, appPassword);
-    _logger.LogInformation("3. Đăng nhập thành công. Đang gửi mail...");
-
-    await client.SendAsync(message);
-    _logger.LogInformation("4. Gửi mail xong!");
-
-    await client.DisconnectAsync(true);
-    _logger.LogInformation($"✅ QUY TRÌNH HOÀN TẤT CHO EMAIL: {msg.Email}");
-}
-catch (Exception ex)
-{
-    // Log lỗi chi tiết
-    _logger.LogError($"❌ CHẾT TẠI BƯỚC NÀO ĐÓ: {ex.Message}");
-}
+            _logger.LogInformation($"✅ [BREVO] Đã gửi mail thành công tới {msg.Email}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Lỗi khi gửi mail chào mừng");
+            // Chỉ cần 1 tầng catch là đủ bắt mọi lỗi (từ config sai đến lỗi mạng)
+            _logger.LogError(ex, $"❌ [BREVO] Lỗi gửi mail: {ex.Message}");
+            
+            // Nếu muốn RabbitMQ gửi lại (Retry) khi lỗi mạng, hãy bỏ comment dòng dưới:
+            // throw; 
         }
     }
 }

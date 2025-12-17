@@ -1,55 +1,55 @@
-using Api.Consumers;
 using MassTransit;
-using Api.Consumers;
-using EmailService.Api.Consumers;
 using Shared.Events;
+// Import các namespace chứa Consumer của bạn
+using Api.Consumers; 
+using EmailService.Api.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ... (các phần register khác giữ nguyên)
+// --- Cấu hình Logging (Giữ nguyên nếu có) ---
+// builder.Host.AddSerilogLogging(); 
 
-// Cấu hình MassTransit RabbitMQ
+// --- Cấu hình MassTransit RabbitMQ ---
 builder.Services.AddMassTransit(x =>
 {
-    // Đăng ký Consumer vừa tạo
+    // 1. Đăng ký tất cả các Consumer
     x.AddConsumer<ContractCreatedConsumer>();
     x.AddConsumer<AccountCreatedConsumer>();
     x.AddConsumer<InvoiceReminderConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        // Cấu hình kết nối RabbitMQ (Lấy từ docker-compose hoặc env var)
+        // 2. Lấy chuỗi kết nối từ biến môi trường
         var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"];
         
-        // Fallback cho local
+        // Fallback cho local (nếu quên config)
         if (string.IsNullOrEmpty(rabbitMqUrl))
         {
             rabbitMqUrl = "amqp://guest:guest@localhost:5672";
         }
 
-        // --- SỬA Ở ĐÂY ---
-        // Bọc rabbitMqUrl vào trong "new Uri(...)"
+        // 3. Cấu hình Host (Quan trọng để parse user/pass/vhost từ URL)
         try 
         {
             cfg.Host(new Uri(rabbitMqUrl));
         }
         catch (Exception ex)
         {
-            // Log ra để biết nếu url bị sai format
-            Console.WriteLine($"Lỗi cấu hình RabbitMQ URL: {rabbitMqUrl}. Chi tiết: {ex.Message}");
+            Console.WriteLine($"❌ Lỗi cấu hình RabbitMQ URL: {rabbitMqUrl}. Chi tiết: {ex.Message}");
             throw; 
         }
-        // -----------------
 
-        // Cấu hình hàng đợi (Queue) - Giữ nguyên
+        // 4. Cấu hình các Hàng đợi (Queues)
         cfg.ReceiveEndpoint("contract-created-queue", e =>
         {
             e.ConfigureConsumer<ContractCreatedConsumer>(context);
         });
+        
         cfg.ReceiveEndpoint("account-created-queue", e =>
         {
             e.ConfigureConsumer<AccountCreatedConsumer>(context);
         });
+        
         cfg.ReceiveEndpoint("invoice-reminder-queue", e =>
         {
             e.ConfigureConsumer<InvoiceReminderConsumer>(context);
@@ -58,5 +58,8 @@ builder.Services.AddMassTransit(x =>
 });
 
 var app = builder.Build();
-app.MapGet("/", () => "Email Service is running properly!");
+
+// --- Endpoint Health Check (Để Render biết Service đang sống) ---
+app.MapGet("/", () => "Email Service is running properly with Brevo!");
+
 app.Run();
