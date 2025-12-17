@@ -59,7 +59,7 @@ export const useRegister = () => {
             authService.signUp(username, password, email, firstname, lastname),
         onSuccess: () => {
             toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
-            navigate('/signin');
+            navigate('/');
         },
         onError: (error: any) => {
             toast.error(error?.response?.data?.message || "Đăng ký thất bại");

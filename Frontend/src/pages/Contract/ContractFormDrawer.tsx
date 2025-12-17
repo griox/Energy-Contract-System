@@ -9,12 +9,13 @@ import {
     Stack,
     MenuItem,
     Divider,
-    CircularProgress
+    CircularProgress,
 } from "@mui/material";
 
 import { FiX } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 
 // Hooks
 import { useCreateContract, useUpdateContract, useContract } from "@/hooks/useContracts";
@@ -22,6 +23,7 @@ import { useResellers } from "@/hooks/useResellers";
 import { useAddresses } from "@/hooks/useAddresses";
 
 export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess }: any) {
+    const { t } = useTranslation();
     const isEdit = mode === "edit";
 
     // --- Hooks lấy dữ liệu bổ trợ ---
@@ -36,15 +38,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
     const updateMutation = useUpdateContract();
 
     // --- Hook lấy chi tiết Contract (khi Edit) ---
-    // Sử dụng hook useContract thay vì useQuery trực tiếp
     const { data: contractData, isLoading: isLoadingContract } = useContract(isEdit && open ? id : 0);
 
-    const {
-        register,
-        handleSubmit,
-        reset,
-        watch,
-    } = useForm({
+    const { register, handleSubmit, reset, watch } = useForm({
         defaultValues: {
             firstName: "",
             lastName: "",
@@ -61,34 +57,34 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
 
     // LOAD DATA INTO FORM
     useEffect(() => {
-        if (open) {
-            if (isEdit && contractData) {
-                reset({
-                    firstName: contractData.firstName,
-                    lastName: contractData.lastName,
-                    email: contractData.email,
-                    phone: contractData.phone,
-                    companyName: contractData.companyName ?? "",
-                    bankAccountNumber: contractData.bankAccountNumber ?? "",
-                    startDate: contractData.startDate ? contractData.startDate.split("T")[0] : "",
-                    endDate: contractData.endDate ? contractData.endDate.split("T")[0] : "",
-                    resellerId: String(contractData.resellerId || ""),
-                    addressId: String(contractData.addressId || ""),
-                });
-            } else if (!isEdit) {
-                reset({
-                    firstName: "",
-                    lastName: "",
-                    email: "",
-                    phone: "",
-                    companyName: "",
-                    bankAccountNumber: "",
-                    startDate: "",
-                    endDate: "",
-                    resellerId: "",
-                    addressId: "",
-                });
-            }
+        if (!open) return;
+
+        if (isEdit && contractData) {
+            reset({
+                firstName: contractData.firstName,
+                lastName: contractData.lastName,
+                email: contractData.email,
+                phone: contractData.phone,
+                companyName: contractData.companyName ?? "",
+                bankAccountNumber: contractData.bankAccountNumber ?? "",
+                startDate: contractData.startDate ? contractData.startDate.split("T")[0] : "",
+                endDate: contractData.endDate ? contractData.endDate.split("T")[0] : "",
+                resellerId: String(contractData.resellerId || ""),
+                addressId: String(contractData.addressId || ""),
+            });
+        } else if (!isEdit) {
+            reset({
+                firstName: "",
+                lastName: "",
+                email: "",
+                phone: "",
+                companyName: "",
+                bankAccountNumber: "",
+                startDate: "",
+                endDate: "",
+                resellerId: "",
+                addressId: "",
+            });
         }
     }, [open, isEdit, contractData, reset]);
 
@@ -103,27 +99,26 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
             bankAccountNumber: form.bankAccountNumber ?? "",
             resellerId: Number(form.resellerId) || 0,
             addressId: Number(form.addressId) || 0,
-
-            // Giữ logic format date như cũ hoặc dùng toISOString()
             startDate: form.startDate ? new Date(form.startDate).toISOString() : new Date().toISOString(),
             endDate: form.endDate ? new Date(form.endDate).toISOString() : new Date().toISOString(),
-
             pdfLink: contractData?.pdfLink || "",
-            // Các trường bắt buộc khác nếu API yêu cầu (giả định)
             contractNumber: contractData?.contractNumber || "AUTO-" + Date.now(),
-
         };
 
         const mutationOptions = {
             onSuccess: () => {
-                // toast.success(isEdit ? "Contract updated!" : "Contract created!");
+                toast.success(
+                    isEdit ? t("contractEdit.toast.updated") : t("contractCreate.toast.created")
+                );
                 onSuccess?.();
                 onClose();
             },
             onError: (err: any) => {
                 console.error("SAVE ERROR:", err);
-                toast.error("Failed to save contract!");
-            }
+                toast.error(
+                    isEdit ? t("contractEdit.toast.updateFailed") : t("contractCreate.toast.createFailed")
+                );
+            },
         };
 
         if (isEdit && id) {
@@ -136,12 +131,15 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
     const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
     return (
-        <Drawer anchor="right" open={open} onClose={onClose}
+        <Drawer
+            anchor="right"
+            open={open}
+            onClose={onClose}
             PaperProps={{ sx: { width: 420, p: 3 } }}
         >
             <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Typography variant="h6">
-                    {isEdit ? "Edit Contract" : "Create Contract"}
+                    {isEdit ? t("contractEdit.title") : t("contractCreate.title")}
                 </Typography>
                 <IconButton onClick={onClose}>
                     <FiX />
@@ -157,19 +155,15 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
             ) : (
                 <form onSubmit={handleSubmit(onSubmit)}>
                     <Stack spacing={2}>
-
-                        <TextField label="First Name" {...register("firstName")} />
-
-                        <TextField label="Last Name" {...register("lastName")} />
-
-                        <TextField label="Email" {...register("email")} />
-
-                        <TextField label="Phone" {...register("phone")} />
+                        <TextField label={t("contractCreate.firstName")} {...register("firstName")} />
+                        <TextField label={t("contractCreate.lastName")} {...register("lastName")} />
+                        <TextField label={t("contractCreate.email")} {...register("email")} />
+                        <TextField label={t("contractCreate.phone")} {...register("phone")} />
 
                         <Stack direction="row" spacing={2}>
                             <TextField
                                 type="date"
-                                label="Start Date"
+                                label={t("contractCreate.startDate")}
                                 InputLabelProps={{ shrink: true }}
                                 {...register("startDate")}
                                 value={watch("startDate") || ""}
@@ -177,7 +171,7 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             />
                             <TextField
                                 type="date"
-                                label="End Date"
+                                label={t("contractCreate.endDate")}
                                 InputLabelProps={{ shrink: true }}
                                 {...register("endDate")}
                                 value={watch("endDate") || ""}
@@ -185,21 +179,21 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             />
                         </Stack>
 
-                        <TextField label="Company Name" {...register("companyName")} />
+                        <TextField label={t("contractCreate.companyName")} {...register("companyName")} />
 
                         <TextField
-                            label="Bank Account Number"
+                            label={t("contractCreate.bankAccountNumber")}
                             {...register("bankAccountNumber")}
                         />
 
                         <TextField
                             select
-                            label="Reseller"
+                            label={t("contractCreate.reseller")}
                             {...register("resellerId")}
                             value={watch("resellerId") || ""}
                         >
-                            <MenuItem value="">-- Select --</MenuItem>
-                            {resellers.map((r) => (
+                            <MenuItem value="">{t("contractCreate.select")}</MenuItem>
+                            {resellers.map((r: any) => (
                                 <MenuItem key={r.id} value={String(r.id)}>
                                     {r.name}
                                 </MenuItem>
@@ -208,12 +202,12 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
 
                         <TextField
                             select
-                            label="Address"
+                            label={t("contractCreate.address")}
                             {...register("addressId")}
                             value={watch("addressId") || ""}
                         >
-                            <MenuItem value="">-- Select --</MenuItem>
-                            {addresses.map((a) => (
+                            <MenuItem value="">{t("contractCreate.select")}</MenuItem>
+                            {addresses.map((a: any) => (
                                 <MenuItem key={a.id} value={String(a.id)}>
                                     {a.houseNumber} • {a.zipCode}
                                 </MenuItem>
@@ -221,17 +215,18 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                         </TextField>
 
                         <Stack direction="row" justifyContent="flex-end" spacing={2}>
-                            <Button onClick={onClose} disabled={isSubmitting}>Cancel</Button>
+                            <Button onClick={onClose} disabled={isSubmitting}>
+                                {t("Cancel")}
+                            </Button>
                             <Button
                                 type="submit"
                                 variant="contained"
                                 disabled={isSubmitting}
                                 startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
                             >
-                                {isEdit ? "Save" : "Create"}
+                                {isEdit ? t("Save") : t("Create")}
                             </Button>
                         </Stack>
-
                     </Stack>
                 </form>
             )}

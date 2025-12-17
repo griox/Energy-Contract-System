@@ -7,6 +7,9 @@ import {
   Typography,
 } from "@mui/material";
 
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+
 import { useDeleteContract } from "@/hooks/useContracts";
 
 export default function ContractDelete({
@@ -20,7 +23,8 @@ export default function ContractDelete({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  // Sử dụng Hook xóa
+  const { t } = useTranslation();
+
   const { mutate: deleteContract, isPending } = useDeleteContract();
 
   const handleDelete = () => {
@@ -28,35 +32,41 @@ export default function ContractDelete({
 
     deleteContract(id, {
       onSuccess: () => {
-        // Hook đã tự động invalidate query 'contracts', 
-        // ta chỉ cần đóng modal và gọi callback onSuccess (nếu cần logic phụ)
-        onSuccess(); 
+        toast.success(t("contractDelete.toast.deleted"));
+        onSuccess();
         onClose();
+      },
+      onError: (err: any) => {
+        console.error("DELETE ERROR:", err);
+        toast.error(t("contractDelete.toast.deleteFailed"));
       },
     });
   };
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Delete Contract</DialogTitle>
+      <DialogTitle>{t("contractDelete.title")}</DialogTitle>
 
       <DialogContent>
         <Typography>
-          Are you sure you want to delete contract <b>#{id}</b>?
-          This action cannot be undone.
+          {t("contractDelete.confirm", { id })}
+          <br />
+          {t("contractDelete.warning")}
         </Typography>
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={isPending}>Cancel</Button>
+        <Button onClick={onClose} disabled={isPending}>
+          {t("Cancel")}
+        </Button>
 
-        <Button 
-          color="error" 
-          variant="contained" 
+        <Button
+          color="error"
+          variant="contained"
           onClick={handleDelete}
-          disabled={isPending} // Disable nút khi đang xóa
+          disabled={isPending}
         >
-          {isPending ? "Deleting..." : "Delete"}
+          {isPending ? t("contractDelete.deleting") : t("contractDelete.delete")}
         </Button>
       </DialogActions>
     </Dialog>

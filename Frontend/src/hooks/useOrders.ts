@@ -5,6 +5,8 @@ import type { OrderQueryParams, CreateOrderParams, OrderDto } from "@/types/orde
 import { getUserRole } from "@/lib/authUtils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import type { PagedResult } from "@/types/contract";
+import { t } from "i18next";
+
 
 
 // --- Hook Tạo Order ---
@@ -14,7 +16,7 @@ export const useCreateOrder = () => {
     return useMutation({
         mutationFn: (data: CreateOrderParams) => orderService.create(data),
         onSuccess: () => {
-            toast.success("Tạo đơn hàng thành công!");
+            toast.success(t("order.toast.created"));
             // Làm mới danh sách đơn hàng
             queryClient.invalidateQueries({ queryKey: ['orders'] });
         },

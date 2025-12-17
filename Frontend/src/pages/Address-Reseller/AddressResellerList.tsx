@@ -48,8 +48,8 @@ export default function AddressResellerList() {
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
 
-    // 💡 Responsive breakpoint
-    const isMobile = useMediaQuery("(max-width: 768px)");
+    // ✅ FIX: dùng breakpoint của theme để khớp với NavMenu (NavMenu đang xs->md là mobile)
+    const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
     const pageBg = "background.default";
     const cardBg = "background.paper";
@@ -115,8 +115,10 @@ export default function AddressResellerList() {
     const addrTotalPages = Math.max(1, Math.ceil(addrTotalCount / PAGE_SIZE));
     const resTotalPages = Math.max(1, Math.ceil(resTotalCount / PAGE_SIZE));
 
-    const addrShownCount = addrTotalCount === 0 ? 0 : (addrPage - 1) * PAGE_SIZE + addresses.length;
-    const resShownCount = resTotalCount === 0 ? 0 : (resPage - 1) * PAGE_SIZE + resellers.length;
+    const addrShownCount =
+        addrTotalCount === 0 ? 0 : (addrPage - 1) * PAGE_SIZE + addresses.length;
+    const resShownCount =
+        resTotalCount === 0 ? 0 : (resPage - 1) * PAGE_SIZE + resellers.length;
 
     const addrCanPrev = addrPage > 1;
     const addrCanNext = addrPage < addrTotalPages;
@@ -127,7 +129,15 @@ export default function AddressResellerList() {
     const handleCloseMenu = () => setAnchorEl(null);
 
     return (
-        <Box sx={{ display: "flex" }}>
+        <Box
+            sx={{
+                display: "flex",
+                // ✅ FIX: mobile xếp dọc -> NavMenu nằm trên, content full ngang
+                flexDirection: { xs: "column", md: "row" },
+                minHeight: "100vh",
+                width: "100%",
+            }}
+        >
             {/* MENU */}
             <NavMenu />
 
@@ -146,13 +156,18 @@ export default function AddressResellerList() {
                     justifyContent="space-between"
                     mb={4}
                     spacing={2}
-                    alignItems={isMobile ? "flex-start" : "center"}
+                    alignItems={isMobile ? "stretch" : "center"}
                 >
                     <Typography variant={isMobile ? "h5" : "h4"} fontWeight={700}>
                         {t("Address & Reseller Management")}
                     </Typography>
 
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenMenu} fullWidth={isMobile}>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenMenu}
+                        fullWidth={isMobile}
+                    >
                         {t("Add New")}
                     </Button>
 
@@ -268,7 +283,11 @@ export default function AddressResellerList() {
                                                     <TableCell>{a.houseNumber}</TableCell>
                                                     <TableCell>{a.extension}</TableCell>
                                                     <TableCell align="right">
-                                                        <Button size="small" startIcon={<EditIcon />} onClick={() => setAddrModal({ type: "edit", data: a })}>
+                                                        <Button
+                                                            size="small"
+                                                            startIcon={<EditIcon />}
+                                                            onClick={() => setAddrModal({ type: "edit", data: a })}
+                                                        >
                                                             {t("Edit")}
                                                         </Button>
                                                         <Button
@@ -292,7 +311,9 @@ export default function AddressResellerList() {
                             <Box
                                 sx={{
                                     display: "flex",
-                                    alignItems: "center",
+                                    flexDirection: { xs: "column", sm: "row" }, // ✅ mobile xếp dọc
+                                    gap: 1.5,
+                                    alignItems: { xs: "stretch", sm: "center" },
                                     justifyContent: "space-between",
                                     py: 1.5,
                                 }}
@@ -301,14 +322,26 @@ export default function AddressResellerList() {
                                     {t("Showing")} <b>{addrShownCount}</b> {t("of")} <b>{addrTotalCount}</b>
                                 </Typography>
 
-                                <Stack direction="row" spacing={2} alignItems="center">
-                                    <Button variant="text" disabled={!addrCanPrev} onClick={() => setAddrPage((p) => p - 1)} sx={{ fontSize: 12 }}>
+                                <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                                    <Button
+                                        variant="text"
+                                        disabled={!addrCanPrev}
+                                        onClick={() => setAddrPage((p) => p - 1)}
+                                        sx={{ fontSize: 12 }}
+                                    >
                                         {t("prev")}
                                     </Button>
+
                                     <Typography>
                                         {t("Page")} <b>{addrPage}</b> / <b>{addrTotalPages}</b>
                                     </Typography>
-                                    <Button variant="text" disabled={!addrCanNext} onClick={() => setAddrPage((p) => p + 1)} sx={{ fontSize: 12 }}>
+
+                                    <Button
+                                        variant="text"
+                                        disabled={!addrCanNext}
+                                        onClick={() => setAddrPage((p) => p + 1)}
+                                        sx={{ fontSize: 12 }}
+                                    >
                                         {t("next")}
                                     </Button>
                                 </Stack>
@@ -404,7 +437,11 @@ export default function AddressResellerList() {
                                                         <Chip label={r.type} size="small" color="info" />
                                                     </TableCell>
                                                     <TableCell align="right">
-                                                        <Button size="small" startIcon={<EditIcon />} onClick={() => setResModal({ type: "edit", data: r })}>
+                                                        <Button
+                                                            size="small"
+                                                            startIcon={<EditIcon />}
+                                                            onClick={() => setResModal({ type: "edit", data: r })}
+                                                        >
                                                             {t("Edit")}
                                                         </Button>
                                                         <Button
@@ -428,7 +465,9 @@ export default function AddressResellerList() {
                             <Box
                                 sx={{
                                     display: "flex",
-                                    alignItems: "center",
+                                    flexDirection: { xs: "column", sm: "row" }, // ✅ mobile xếp dọc
+                                    gap: 1.5,
+                                    alignItems: { xs: "stretch", sm: "center" },
                                     justifyContent: "space-between",
                                     py: 1.5,
                                 }}
@@ -437,8 +476,13 @@ export default function AddressResellerList() {
                                     {t("Showing")} <b>{resShownCount}</b> {t("of")} <b>{resTotalCount}</b>
                                 </Typography>
 
-                                <Stack direction="row" spacing={2} alignItems="center">
-                                    <Button variant="text" disabled={!resCanPrev} onClick={() => setResPage((p) => p - 1)} sx={{ fontSize: 12 }}>
+                                <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                                    <Button
+                                        variant="text"
+                                        disabled={!resCanPrev}
+                                        onClick={() => setResPage((p) => p - 1)}
+                                        sx={{ fontSize: 12 }}
+                                    >
                                         {t("prev")}
                                     </Button>
 
@@ -446,7 +490,12 @@ export default function AddressResellerList() {
                                         {t("Page")} <b>{resPage}</b> / <b>{resTotalPages}</b>
                                     </Typography>
 
-                                    <Button variant="text" disabled={!resCanNext} onClick={() => setResPage((p) => p + 1)} sx={{ fontSize: 12 }}>
+                                    <Button
+                                        variant="text"
+                                        disabled={!resCanNext}
+                                        onClick={() => setResPage((p) => p + 1)}
+                                        sx={{ fontSize: 12 }}
+                                    >
                                         {t("next")}
                                     </Button>
                                 </Stack>

@@ -22,6 +22,7 @@ import {
     CircularProgress,
     FormHelperText,
     useTheme,
+    useMediaQuery,
 } from "@mui/material";
 
 import Grid from "@mui/material/Grid";
@@ -36,6 +37,8 @@ type TemplateCreateFormValues = {
     isActive: boolean;
 };
 
+const SIDEBAR_WIDTH = 240;
+
 // Toolbar config
 const modules = {
     toolbar: [
@@ -49,7 +52,7 @@ const modules = {
     ],
 };
 
-// Default HTML template
+// Default HTML template (nội dung HTML giữ nguyên, UI song ngữ)
 const CONTRACT_TEMPLATE_HTML = `
   <h1 style="text-align: center;">HỢP ĐỒNG CUNG CẤP NĂNG LƯỢNG</h1>
   <h2 style="text-align: center; color: #6b7280;">(Gas / Điện năng · Energy Contract Manager)</h2>
@@ -73,12 +76,15 @@ const CONTRACT_TEMPLATE_HTML = `
 `;
 
 export default function TemplateCreate() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const createMutation = useCreateTemplate();
 
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
+
+    // ✅ layout mobile theo NavMenu (md trở xuống)
+    const isLayoutMobile = useMediaQuery(theme.breakpoints.down("md"));
 
     const pageBg = "background.default";
     const cardBg = "background.paper";
@@ -90,26 +96,39 @@ export default function TemplateCreate() {
         handleSubmit,
         watch,
         control,
+        getValues,
+        setValue,
         formState: { errors },
     } = useForm<TemplateCreateFormValues>({
         resolver: yupResolver(templateSchema),
         defaultValues: {
             name: "",
-            description: "",
+            // ✅ lấy defaultDescription theo ngôn ngữ hiện tại
+            description: t("templateCreate.defaultDescription"),
             htmlContent: CONTRACT_TEMPLATE_HTML,
             isActive: true,
         },
     });
 
+    // ✅ nếu user đổi ngôn ngữ khi đang ở page và description đang trống -> set lại theo i18n
+    useEffect(() => {
+        const current = (getValues("description") ?? "").trim();
+        if (!current) {
+            setValue("description", t("templateCreate.defaultDescription"), { shouldDirty: false });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [i18n.language]);
+
     const htmlContent = watch("htmlContent");
 
     const previewHtml = useMemo(() => {
+        // ✅ key đúng nằm trong template.previewEmpty
+        const emptyText = t("template.previewEmpty");
+
         const content =
             htmlContent && htmlContent.trim().length > 0
                 ? htmlContent
-                : `<p style='font-family:system-ui;padding:16px;color:#888'>${t(
-                      "templateCreate.noContent"
-                  )}</p>`;
+                : `<p style='font-family:system-ui;padding:16px;color:#888'>${emptyText}</p>`;
 
         return `
       <!DOCTYPE html>
@@ -144,26 +163,36 @@ export default function TemplateCreate() {
 
     const isSubmitting = createMutation.isPending;
 
-    useEffect(() => {}, [isDark]);
+    // giữ như bạn đang có (không xóa)
+    useEffect(() => { }, [isDark]);
 
     return (
-        <>
+        <Box
+            sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" }, // ✅ FIX mobile layout
+                minHeight: "100vh",
+                width: "100%",
+            }}
+        >
             <NavMenu />
 
             <Box
                 sx={{
-                    ml: { xs: 0, md: "260px" },
+                    ml: { xs: 0, md: `${SIDEBAR_WIDTH}px` },
                     p: 3,
+                    pt: { xs: 2, md: 3 },
                     bgcolor: pageBg,
                     color: "text.primary",
                     minHeight: "100vh",
+                    width: "100%",
                 }}
             >
                 {/* HEADER */}
                 <Stack
                     direction={{ xs: "column", md: "row" }}
                     justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", md: "center" }}
+                    alignItems={{ xs: "stretch", md: "center" }}
                     sx={{ mb: 3, gap: 1.5 }}
                 >
                     <Box>
@@ -175,9 +204,15 @@ export default function TemplateCreate() {
                         </Typography>
                     </Box>
 
-                    <Stack direction="row" spacing={1}>
-                        <Button variant="outlined" onClick={() => navigate("/templates")} disabled={isSubmitting}>
-                            {t("templateCreate.cancel")}
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        <Button
+                            variant="outlined"
+                            onClick={() => navigate("/templates")}
+                            disabled={isSubmitting}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
+                        >
+                            {/* ✅ key global Cancel có sẵn */}
+                            {t("Cancel")}
                         </Button>
 
                         <Button
@@ -185,9 +220,11 @@ export default function TemplateCreate() {
                             variant="contained"
                             onClick={handleSubmit(onSubmit)}
                             disabled={isSubmitting}
-                            startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
+                            startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : undefined}
                         >
-                            {isSubmitting ? t("templateCreate.creating") : t("templateCreate.create")}
+                            {/* ✅ key global Creating... có sẵn */}
+                            {isSubmitting ? t("Creating...") : t("templateCreate.create")}
                         </Button>
                     </Stack>
                 </Stack>
@@ -211,11 +248,12 @@ export default function TemplateCreate() {
                             }}
                         >
                             <Typography variant="subtitle2" fontWeight={700}>
-                                {t("templateCreate.settings")}
+                                {/* ✅ key đúng nằm trong template.settings */}
+                                {t("template.settings")}
                             </Typography>
 
                             <TextField
-                                label={t("templateCreate.templateName")}
+                                label={t("template.name")}
                                 size="small"
                                 {...register("name")}
                                 error={!!errors.name}
@@ -224,7 +262,7 @@ export default function TemplateCreate() {
                             />
 
                             <TextField
-                                label={t("templateCreate.description")}
+                                label={t("template.description")}
                                 size="small"
                                 {...register("description")}
                                 error={!!errors.description}
@@ -234,11 +272,11 @@ export default function TemplateCreate() {
 
                             <FormControlLabel
                                 control={<Switch defaultChecked {...register("isActive")} />}
-                                label={t("templateCreate.active")}
+                                label={t("template.active")}
                             />
 
                             <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>
-                                {t("templateCreate.contentEditor")}
+                                {t("template.editor")}
                             </Typography>
 
                             {/* QUILL */}
@@ -252,7 +290,7 @@ export default function TemplateCreate() {
                                             value={field.value}
                                             onChange={field.onChange}
                                             modules={modules}
-                                            placeholder={t("templateCreate.editorPlaceholder")}
+                                            placeholder={t("template.editorPlaceholder")}
                                         />
                                     )}
                                 />
@@ -273,18 +311,18 @@ export default function TemplateCreate() {
                                 height: "100%",
                                 display: "flex",
                                 flexDirection: "column",
-                                position: "sticky",
-                                top: 20,
+                                position: { xs: "static", md: "sticky" }, // ✅ mobile không sticky
+                                top: { md: 20 },
                                 bgcolor: cardBg,
                                 border: `1px solid ${borderColor}`,
                                 boxShadow: paperShadow,
                             }}
                         >
                             <Typography variant="subtitle1" fontWeight={700}>
-                                {t("templateCreate.previewTitle")}
+                                {t("template.previewTitle")}
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                {t("templateCreate.previewSubtitle")}
+                                {t("template.previewSubtitle")}
                             </Typography>
 
                             <Box
@@ -313,6 +351,6 @@ export default function TemplateCreate() {
                     </Grid>
                 </Grid>
             </Box>
-        </>
+        </Box>
     );
 }

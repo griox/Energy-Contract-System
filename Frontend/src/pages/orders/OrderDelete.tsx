@@ -1,12 +1,20 @@
-import { Box, Button, Paper, Typography, Stack } from "@mui/material";
+import { Box, Button, Paper, Typography, Stack, CircularProgress, useTheme } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import { useNavigate, useParams } from "react-router-dom";
 import NavMenu from "@/components/NavMenu/NavMenu";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { useDeleteOrder, useOrder } from "@/hooks/useOrders";
+import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
+
+const SIDEBAR_WIDTH = 240;
 
 export default function OrderDelete() {
+    const { t } = useTranslation();
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const theme = useTheme();
+
     const orderId = Number(id);
 
     const { data: order, isLoading } = useOrder(orderId);
@@ -14,21 +22,39 @@ export default function OrderDelete() {
 
     const handleDelete = () => {
         deleteMutation.mutate(orderId, {
-            onSuccess: () => navigate("/orders"),
+            onSuccess: () => {
+                toast.success(t("orderDelete.toast.deleted"));
+                navigate("/orders");
+            },
+            onError: (err: any) => {
+                console.error("DELETE ORDER ERROR:", err);
+                toast.error(t("orderDelete.toast.deleteFailed"));
+            },
         });
     };
 
-    if (isLoading) return <Box sx={{ ml: "240px", p: 4 }}>Loading...</Box>;
+    const pageBg = "background.default";
+    const paperBg = "background.paper";
+    const borderColor = alpha(theme.palette.divider, 0.8);
+
+    if (isLoading) {
+        return (
+            <Box sx={{ ml: `${SIDEBAR_WIDTH}px`, p: 4 }}>
+                {t("Loading")}
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ display: "flex" }}>
             <NavMenu />
+
             <Box
                 sx={{
-                    ml: "240px",
+                    ml: `${SIDEBAR_WIDTH}px`,
                     p: 4,
                     width: "100%",
-                    background: "#F8FAFC",
+                    bgcolor: pageBg,
                     minHeight: "100vh",
                     display: "flex",
                     alignItems: "center",
@@ -38,48 +64,49 @@ export default function OrderDelete() {
                 <Paper
                     sx={{
                         p: 4,
-                        maxWidth: 500,
+                        maxWidth: 520,
                         width: "100%",
-                        borderRadius: "16px",
+                        borderRadius: 4,
                         textAlign: "center",
+                        bgcolor: paperBg,
+                        border: `1px solid ${borderColor}`,
                     }}
                 >
-                    <WarningAmberRoundedIcon
-                        sx={{ fontSize: 60, color: "#f59e0b", mb: 2 }}
-                    />
+                    <WarningAmberRoundedIcon sx={{ fontSize: 60, color: "#f59e0b", mb: 2 }} />
 
-                    <Typography variant="h5" fontWeight={700} mb={1}>
-                        Delete Order?
+                    <Typography variant="h5" fontWeight={800} mb={1}>
+                        {t("orderDelete.title")}
                     </Typography>
 
                     <Typography color="text.secondary" mb={4}>
-                        Are you sure you want to delete order{" "}
-                        <b>{order?.orderNumber}</b>?<br />
-                        This action cannot be undone.
+                        {t("orderDelete.confirm", { orderNumber: order?.orderNumber ?? "—" })}
+                        <br />
+                        {t("orderDelete.warning")}
                     </Typography>
 
-                    <Stack
-                        direction="row"
-                        spacing={2}
-                        justifyContent="center"
-                    >
+                    <Stack direction="row" spacing={2} justifyContent="center">
                         <Button
                             variant="outlined"
                             onClick={() => navigate("/orders")}
-                            sx={{ borderRadius: "8px", px: 3 }}
+                            sx={{ borderRadius: 2, px: 3 }}
+                            disabled={deleteMutation.isPending}
                         >
-                            Cancel
+                            {t("Cancel")}
                         </Button>
+
                         <Button
                             variant="contained"
                             color="error"
                             onClick={handleDelete}
                             disabled={deleteMutation.isPending}
-                            sx={{ borderRadius: "8px", px: 3 }}
+                            sx={{ borderRadius: 2, px: 3 }}
+                            startIcon={
+                                deleteMutation.isPending ? (
+                                    <CircularProgress size={18} color="inherit" />
+                                ) : undefined
+                            }
                         >
-                            {deleteMutation.isPending
-                                ? "Deleting..."
-                                : "Delete Order"}
+                            {deleteMutation.isPending ? t("orderDelete.deleting") : t("orderDelete.delete")}
                         </Button>
                     </Stack>
                 </Paper>

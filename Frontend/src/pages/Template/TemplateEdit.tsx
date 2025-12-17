@@ -19,7 +19,17 @@ import {
     CircularProgress,
     FormHelperText,
     useTheme,
+    useMediaQuery,
+    Tabs,
+    Tab,
+    Divider,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    IconButton,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import { alpha } from "@mui/material/styles";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -64,6 +74,7 @@ export default function TemplateEdit() {
 
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
     const pageBg = "background.default";
     const cardBg = "background.paper";
@@ -78,6 +89,7 @@ export default function TemplateEdit() {
 
     const [templateName, setTemplateName] = useState<string>("");
 
+    // ===== Desktop resize states (GIỮ NGUYÊN) =====
     const [leftWidth, setLeftWidth] = useState<number>(50);
     const [isResizing, setIsResizing] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -124,8 +136,10 @@ export default function TemplateEdit() {
         });
     }, [data, reset, fillFromContract, previewVariables]);
 
-    // drag + resize
+    // drag + resize (desktop only) - GIỮ NGUYÊN + chặn mobile
     useEffect(() => {
+        if (isMobile) return;
+
         function handleMouseMove(e: MouseEvent) {
             if (!isResizing || !containerRef.current) return;
 
@@ -150,7 +164,7 @@ export default function TemplateEdit() {
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
         };
-    }, [isResizing]);
+    }, [isResizing, isMobile]);
 
     const onSubmit = (values: TemplateEditFormValues) => {
         if (Number.isNaN(numericId)) return;
@@ -173,74 +187,96 @@ export default function TemplateEdit() {
         const content =
             htmlContent && htmlContent.trim().length > 0
                 ? htmlContent
-                : "<p style='padding:16px;color:#888'>No content</p>";
+                : `<p style="padding:16px;color:#888">${t("template.previewEmpty")}</p>`;
 
         return `
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="utf-8" />
         <style>
           body {
-            font-family: system-ui;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
             margin: 0;
             padding: 20px;
             font-size: 10pt;
             line-height: 1.4;
             color: #333;
+            background: #fff;
           }
         </style>
       </head>
       <body>${content}</body>
       </html>
     `;
-    }, [htmlContent]);
+    }, [htmlContent, t]);
+
+    // ===== Mobile UI states (KHÔNG ĐỤNG DESKTOP) =====
+    const [mobileTab, setMobileTab] = useState<0 | 1>(0); // 0=settings, 1=content
+    const [previewOpen, setPreviewOpen] = useState(false);
 
     // Guards
-    if (Number.isNaN(numericId))
+    if (Number.isNaN(numericId)) {
         return (
-            <Box sx={{ display: "flex" }}>
+            <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" } }}>
                 <NavMenu />
-                <Box sx={{ ml: { md: "260px" }, p: 3 }}>Invalid ID</Box>
+                <Box sx={{ ml: { xs: 0, md: "260px" }, p: 3, width: "100%" }}>
+                    <Typography color="error">{t("template.invalidId")}</Typography>
+                </Box>
             </Box>
         );
+    }
 
-    if (isLoading)
+    if (isLoading) {
         return (
-            <Box sx={{ display: "flex" }}>
+            <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" } }}>
                 <NavMenu />
-                <Box sx={{ ml: { md: "260px" }, p: 3 }}>Loading...</Box>
+                <Box sx={{ ml: { xs: 0, md: "260px" }, p: 3, width: "100%" }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                        <CircularProgress size={18} />
+                        <Typography color="text.secondary">{t("Loading data...")}</Typography>
+                    </Stack>
+                </Box>
             </Box>
         );
+    }
 
-    if (isError || !data)
+    if (isError || !data) {
         return (
-            <Box sx={{ display: "flex" }}>
+            <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" } }}>
                 <NavMenu />
-                <Box sx={{ ml: { md: "260px" }, p: 3 }}>Error loading template.</Box>
+                <Box sx={{ ml: { xs: 0, md: "260px" }, p: 3, width: "100%" }}>
+                    <Typography color="error">{t("template.loadError")}</Typography>
+                </Box>
             </Box>
         );
+    }
 
     return (
-        <>
+        // ✅ quan trọng: mobile = column để TopBar không bóp ngang content
+        <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" } }}>
             <NavMenu />
 
             <Box
                 sx={{
-                    ml: { xs: 0, md: "260px" },
-                    p: 3,
+                    ml: { xs: 0, md: "260px" }, // GIỮ Y NGUYÊN desktop của m
+                    p: { xs: 2, md: 3 },
+                    pt: { xs: 2, md: 3 },
                     bgcolor: pageBg,
                     minHeight: "100vh",
+                    width: "100%",
+                    color: "text.primary",
                 }}
             >
                 {/* HEADER */}
                 <Stack
                     direction={{ xs: "column", md: "row" }}
                     justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", md: "center" }}
-                    sx={{ mb: 3, gap: 1.5 }}
+                    alignItems={{ xs: "stretch", md: "center" }}
+                    sx={{ mb: 2, gap: 1.25 }}
                 >
                     <Box>
-                        <Typography variant="h5" fontWeight={800}>
+                        <Typography variant={isMobile ? "h6" : "h5"} fontWeight={900}>
                             {t("templateEdit.title")}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -249,188 +285,367 @@ export default function TemplateEdit() {
                     </Box>
 
                     <Stack direction="row" spacing={1}>
-                        <Button variant="outlined" onClick={() => navigate("/templates")} disabled={isSubmitting}>
-                            {t("templateEdit.back")}
+                        <Button
+                            fullWidth={isMobile}
+                            variant="outlined"
+                            onClick={() => navigate("/templates")}
+                            disabled={isSubmitting}
+                            sx={{ borderRadius: 2, fontWeight: 800 }}
+                        >
+                            {t("template.back")}
                         </Button>
 
                         <Button
+                            fullWidth={isMobile}
                             variant="contained"
                             onClick={handleSubmit(onSubmit)}
                             disabled={isSubmitting}
-                            startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
+                            startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : null}
+                            sx={{ borderRadius: 2, fontWeight: 900 }}
                         >
-                            {isSubmitting ? t("templateEdit.saving") : t("templateEdit.save")}
+                            {isSubmitting ? t("Saving...") : t("templateEdit.save")}
                         </Button>
                     </Stack>
                 </Stack>
 
-                {/* BODY */}
-                <Box
-                    ref={containerRef}
-                    sx={{
-                        display: "flex",
-                        flexDirection: { xs: "column", md: "row" },
-                        gap: { xs: 2, md: 0 },
-                        height: { xs: "auto", md: "calc(100vh - 180px)" },
-                    }}
-                >
-                    {/* LEFT: EDITOR */}
-                    <Box
+                {/* =======================
+            MOBILE LAYOUT (Tabs)
+            ======================= */}
+                {isMobile ? (
+                    <Paper
+                        elevation={0}
                         sx={{
-                            flexBasis: { xs: "100%", md: `${leftWidth}%` },
-                            pr: { md: 1.5 },
-                            display: "flex",
-                            flexDirection: "column",
-                            minHeight: 0,
+                            borderRadius: 4,
+                            overflow: "hidden",
+                            bgcolor: cardBg,
+                            border: `1px solid ${borderColor}`,
+                            boxShadow: paperShadow,
                         }}
                     >
-                        <Paper
-                            elevation={0}
+                        <Tabs
+                            value={mobileTab}
+                            onChange={(_, v) => setMobileTab(v)}
+                            variant="fullWidth"
                             sx={{
-                                p: 2.5,
-                                borderRadius: 2,
-                                height: { xs: "auto", md: "100%" },
+                                borderBottom: `1px solid ${borderColor}`,
+                                "& .MuiTab-root": { fontWeight: 900 },
+                            }}
+                        >
+                            <Tab label={t("template.settings")} />
+                            <Tab label={t("template.editor")} />
+                        </Tabs>
+
+                        {/* SETTINGS TAB */}
+                        {mobileTab === 0 ? (
+                            <Box sx={{ p: 2 }}>
+                                <Stack spacing={1.5}>
+                                    <TextField
+                                        label={t("template.name")}
+                                        size="small"
+                                        value={templateName}
+                                        disabled
+                                        fullWidth
+                                    />
+
+                                    <TextField
+                                        label={t("template.description")}
+                                        size="small"
+                                        {...register("description")}
+                                        error={!!errors.description}
+                                        helperText={errors.description?.message?.toString()}
+                                        fullWidth
+                                    />
+
+                                    <FormControlLabel
+                                        control={<Switch {...register("isActive")} />}
+                                        label={t("template.active")}
+                                    />
+                                </Stack>
+                            </Box>
+                        ) : (
+                            /* CONTENT TAB */
+                            <Box sx={{ p: 2 }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                                    <Typography variant="subtitle2" fontWeight={900}>
+                                        {t("template.editor")}
+                                    </Typography>
+
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={() => setPreviewOpen(true)}
+                                        sx={{ borderRadius: 2, fontWeight: 800 }}
+                                    >
+                                        {t("template.previewTitle")}
+                                    </Button>
+                                </Stack>
+
+                                <Divider sx={{ mb: 1.5, borderColor }} />
+
+                                <Box
+                                    sx={{
+                                        "& .quill": { display: "flex", flexDirection: "column" },
+                                        "& .ql-toolbar": {
+                                            backgroundColor: cardBg,
+                                            borderColor: borderColor,
+                                        },
+                                        "& .ql-container": {
+                                            borderColor: borderColor,
+                                            backgroundColor: isDark ? alpha(theme.palette.common.white, 0.05) : "#fff",
+                                            minHeight: 380,
+                                            borderBottomLeftRadius: 8,
+                                            borderBottomRightRadius: 8,
+                                        },
+                                        "& .ql-editor": {
+                                            minHeight: 340,
+                                        },
+                                    }}
+                                >
+                                    <Controller
+                                        name="htmlContent"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <ReactQuill
+                                                theme="snow"
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                modules={modules}
+                                                placeholder={t("template.editorPlaceholderEdit")}
+                                            />
+                                        )}
+                                    />
+
+                                    {errors.htmlContent && (
+                                        <FormHelperText error sx={{ mt: 1 }}>
+                                            {errors.htmlContent.message as any}
+                                        </FormHelperText>
+                                    )}
+                                </Box>
+
+                                {/* PREVIEW DIALOG (mobile) */}
+                                <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} fullScreen>
+                                    <DialogTitle sx={{ fontWeight: 900, display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Box sx={{ flex: 1 }}>{t("template.previewTitle")}</Box>
+                                        <IconButton onClick={() => setPreviewOpen(false)}>
+                                            <CloseIcon />
+                                        </IconButton>
+                                    </DialogTitle>
+
+                                    <DialogContent dividers sx={{ p: 0 }}>
+                                        <Box
+                                            sx={{
+                                                height: "calc(100vh - 120px)",
+                                                borderTop: `1px solid ${borderColor}`,
+                                                bgcolor: isDark ? alpha(theme.palette.common.white, 0.04) : "#fff",
+                                            }}
+                                        >
+                                            <iframe
+                                                title="preview"
+                                                style={{
+                                                    border: "none",
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    backgroundColor: "white",
+                                                }}
+                                                srcDoc={previewHtml}
+                                            />
+                                        </Box>
+                                    </DialogContent>
+
+                                    <DialogActions sx={{ p: 2 }}>
+                                        <Button
+                                            variant="contained"
+                                            onClick={() => setPreviewOpen(false)}
+                                            sx={{ borderRadius: 2, fontWeight: 900 }}
+                                            fullWidth
+                                        >
+                                            {t("Close", { defaultValue: "Close" })}
+                                        </Button>
+                                    </DialogActions>
+                                </Dialog>
+                            </Box>
+                        )}
+                    </Paper>
+                ) : (
+                    /* =======================
+                       DESKTOP LAYOUT (GIỮ NGUYÊN)
+                       ======================= */
+                    <Box
+                        ref={containerRef}
+                        sx={{
+                            display: "flex",
+                            flexDirection: "row",
+                            gap: 0,
+                            height: "calc(100vh - 180px)",
+                        }}
+                    >
+                        {/* LEFT: EDITOR */}
+                        <Box
+                            sx={{
+                                flexBasis: `${leftWidth}%`,
+                                pr: 1.5,
                                 display: "flex",
                                 flexDirection: "column",
-                                gap: 2,
-                                bgcolor: cardBg,
-                                border: `1px solid ${borderColor}`,
-                                boxShadow: paperShadow,
                                 minHeight: 0,
                             }}
                         >
-                            <Typography variant="subtitle2" fontWeight={700}>
-                                {t("templateEdit.settings")}
-                            </Typography>
-
-                            <TextField label={t("templateEdit.name")} size="small" value={templateName} disabled fullWidth />
-
-                            <TextField
-                                label={t("templateEdit.description")}
-                                size="small"
-                                {...register("description")}
-                                error={!!errors.description}
-                                helperText={errors.description?.message?.toString()}
-                                fullWidth
-                            />
-
-                            <FormControlLabel control={<Switch {...register("isActive")} />} label={t("templateEdit.active")} />
-
-                            <Typography variant="subtitle2" fontWeight={700}>
-                                {t("templateEdit.contentEditor")}
-                            </Typography>
-
-                            {/* QUILL */}
-                            <Box
+                            <Paper
+                                elevation={0}
                                 sx={{
-                                    flex: 1,
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    height: "100%",
                                     display: "flex",
                                     flexDirection: "column",
+                                    gap: 2,
+                                    bgcolor: cardBg,
+                                    border: `1px solid ${borderColor}`,
+                                    boxShadow: paperShadow,
                                     minHeight: 0,
+                                }}
+                            >
+                                <Typography variant="subtitle2" fontWeight={800}>
+                                    {t("template.settings")}
+                                </Typography>
 
-                                    "& .quill": {
+                                <TextField label={t("template.name")} size="small" value={templateName} disabled fullWidth />
+
+                                <TextField
+                                    label={t("template.description")}
+                                    size="small"
+                                    {...register("description")}
+                                    error={!!errors.description}
+                                    helperText={errors.description?.message?.toString()}
+                                    fullWidth
+                                />
+
+                                <FormControlLabel control={<Switch {...register("isActive")} />} label={t("template.active")} />
+
+                                <Typography variant="subtitle2" fontWeight={800}>
+                                    {t("template.editor")}
+                                </Typography>
+
+                                {/* QUILL */}
+                                <Box
+                                    sx={{
                                         flex: 1,
                                         display: "flex",
                                         flexDirection: "column",
-                                        overflow: "hidden",
-                                    },
-                                    "& .ql-toolbar": {
-                                        flexShrink: 0,
-                                        backgroundColor: cardBg,
-                                        borderColor: borderColor,
-                                    },
-                                    "& .ql-container": {
-                                        flex: 1,
-                                        overflow: "hidden",
-                                        borderColor: borderColor,
-                                        backgroundColor: isDark ? alpha(theme.palette.common.white, 0.05) : "#fff",
-                                    },
-                                    "& .ql-editor": {
-                                        flex: 1,
-                                        overflowY: "auto",
-                                    },
-                                }}
-                            >
-                                <Controller
-                                    name="htmlContent"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <ReactQuill
-                                            theme="snow"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            modules={modules}
-                                            placeholder={t("templateEdit.placeholder")}
-                                        />
+                                        minHeight: 0,
+
+                                        "& .quill": {
+                                            flex: 1,
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            overflow: "hidden",
+                                        },
+                                        "& .ql-toolbar": {
+                                            flexShrink: 0,
+                                            backgroundColor: cardBg,
+                                            borderColor: borderColor,
+                                        },
+                                        "& .ql-container": {
+                                            flex: 1,
+                                            overflow: "hidden",
+                                            borderColor: borderColor,
+                                            backgroundColor: isDark ? alpha(theme.palette.common.white, 0.05) : "#fff",
+                                        },
+                                        "& .ql-editor": {
+                                            flex: 1,
+                                            overflowY: "auto",
+                                        },
+                                    }}
+                                >
+                                    <Controller
+                                        name="htmlContent"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <ReactQuill
+                                                theme="snow"
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                modules={modules}
+                                                placeholder={t("template.editorPlaceholderEdit")}
+                                            />
+                                        )}
+                                    />
+
+                                    {errors.htmlContent && (
+                                        <FormHelperText error>{errors.htmlContent.message as any}</FormHelperText>
                                     )}
-                                />
+                                </Box>
+                            </Paper>
+                        </Box>
 
-                                {errors.htmlContent && (
-                                    <FormHelperText error>{errors.htmlContent.message as any}</FormHelperText>
-                                )}
-                            </Box>
-                        </Paper>
-                    </Box>
+                        {/* DRAG HANDLE */}
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <Box
+                                onMouseDown={() => setIsResizing(true)}
+                                sx={{
+                                    width: "8px",
+                                    height: "120px",
+                                    cursor: "col-resize",
+                                    bgcolor: alpha(theme.palette.text.secondary, isResizing ? 0.6 : 0.3),
+                                    borderRadius: "4px",
+                                }}
+                            />
+                        </Box>
 
-                    {/* DRAG HANDLE */}
-                    <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
+                        {/* RIGHT: PREVIEW */}
                         <Box
-                            onMouseDown={() => setIsResizing(true)}
                             sx={{
-                                width: "8px",
-                                height: "120px",
-                                cursor: "col-resize",
-                                bgcolor: alpha(theme.palette.text.secondary, isResizing ? 0.6 : 0.3),
-                                borderRadius: "4px",
-                            }}
-                        />
-                    </Box>
-
-                    {/* RIGHT: PREVIEW */}
-                    <Box sx={{ flexBasis: { xs: "100%", md: `${100 - leftWidth}%` }, pl: { md: 1.5 }, minHeight: 0 }}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 2,
-                                height: { xs: 520, md: "100%" },
-                                display: "flex",
-                                flexDirection: "column",
-                                bgcolor: cardBg,
-                                border: `1px solid ${borderColor}`,
-                                boxShadow: paperShadow,
+                                flexBasis: `${100 - leftWidth}%`,
+                                pl: 1.5,
                                 minHeight: 0,
                             }}
                         >
-                            <Typography variant="subtitle1" fontWeight={700}>
-                                {t("templateEdit.preview")}
-                            </Typography>
-
-                            <Box
+                            <Paper
+                                elevation={0}
                                 sx={{
-                                    mt: 1,
-                                    flex: 1,
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    height: "100%",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    bgcolor: cardBg,
                                     border: `1px solid ${borderColor}`,
-                                    borderRadius: 1,
-                                    overflow: "hidden",
-                                    bgcolor: isDark ? alpha(theme.palette.common.white, 0.04) : "#fff",
+                                    boxShadow: paperShadow,
+                                    minHeight: 0,
                                 }}
                             >
-                                <iframe
-                                    title="preview"
-                                    style={{
-                                        border: "none",
-                                        width: "100%",
-                                        height: "100%",
-                                        backgroundColor: "white",
+                                <Typography variant="subtitle1" fontWeight={800}>
+                                    {t("template.previewTitle")}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                    {t("template.previewSubtitle")}
+                                </Typography>
+
+                                <Box
+                                    sx={{
+                                        mt: 1,
+                                        flex: 1,
+                                        border: `1px solid ${borderColor}`,
+                                        borderRadius: 1,
+                                        overflow: "hidden",
+                                        bgcolor: isDark ? alpha(theme.palette.common.white, 0.04) : "#fff",
                                     }}
-                                    srcDoc={previewHtml}
-                                />
-                            </Box>
-                        </Paper>
+                                >
+                                    <iframe
+                                        title="preview"
+                                        style={{
+                                            border: "none",
+                                            width: "100%",
+                                            height: "100%",
+                                            backgroundColor: "white",
+                                        }}
+                                        srcDoc={previewHtml}
+                                    />
+                                </Box>
+                            </Paper>
+                        </Box>
                     </Box>
-                </Box>
+                )}
             </Box>
-        </>
+        </Box>
     );
 }

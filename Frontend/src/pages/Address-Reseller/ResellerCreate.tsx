@@ -1,11 +1,21 @@
 import {
-    Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, Button, MenuItem
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Button,
+    MenuItem,
+    CircularProgress,
 } from "@mui/material";
 import { useState } from "react";
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+
 import { useCreateReseller } from "@/hooks/useResellers";
 
-export default function ResellerCreate({ open, onClose }: any) {
+export default function ResellerCreate({ open, onClose, onSaved }: any) {
+    const { t } = useTranslation();
     const createMutation = useCreateReseller();
 
     const [form, setForm] = useState({
@@ -21,19 +31,27 @@ export default function ResellerCreate({ open, onClose }: any) {
     const save = () => {
         createMutation.mutate(form, {
             onSuccess: () => {
+                toast.success(t("resellerCreate.toast.created"));
                 setForm({ name: "", type: "Broker" });
+                onSaved?.();
                 onClose();
+            },
+            onError: (err: any) => {
+                console.error("CREATE RESELLER ERROR:", err);
+                toast.error(t("resellerCreate.toast.createFailed"));
             },
         });
     };
 
+    const isSubmitting = createMutation.isPending;
+
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle>Create Reseller</DialogTitle>
+            <DialogTitle>{t("resellerCreate.title")}</DialogTitle>
 
             <DialogContent>
                 <TextField
-                    label="Name"
+                    label={t("resellerCreate.name")}
                     name="name"
                     fullWidth
                     margin="dense"
@@ -42,7 +60,7 @@ export default function ResellerCreate({ open, onClose }: any) {
                 />
 
                 <TextField
-                    label="Type"
+                    label={t("resellerCreate.type")}
                     name="type"
                     fullWidth
                     margin="dense"
@@ -50,19 +68,26 @@ export default function ResellerCreate({ open, onClose }: any) {
                     value={form.type}
                     onChange={handleChange}
                 >
-                    <MenuItem value="Broker">Broker</MenuItem>
-                    <MenuItem value="Agency">Agency</MenuItem>
+                    <MenuItem value="Broker">{t("Broker")}</MenuItem>
+                    <MenuItem value="Agency">{t("Agency")}</MenuItem>
+                    <MenuItem value="Supplier">{t("Supplier")}</MenuItem>
                 </TextField>
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button
-                    variant="contained"
-                    onClick={save}
-                    disabled={createMutation.isPending}
-                >
-                    {createMutation.isPending ? "Saving..." : "Save"}
+                <Button onClick={onClose} disabled={isSubmitting}>
+                    {t("Cancel")}
+                </Button>
+
+                <Button variant="contained" onClick={save} disabled={isSubmitting}>
+                    {isSubmitting ? (
+                        <>
+                            <CircularProgress size={18} color="inherit" style={{ marginRight: 8 }} />
+                            {t("Saving...")}
+                        </>
+                    ) : (
+                        t("Save")
+                    )}
                 </Button>
             </DialogActions>
         </Dialog>

@@ -51,7 +51,7 @@ export default function OrderCreate() {
         <Box sx={{ display: "flex" }}>
             <NavMenu />
             <Box sx={{ ml: "240px", p: 4, width: "100%", background: "#F8FAFC", minHeight: "100vh" }}>
-                
+
                 <Button
                     startIcon={<ArrowBackIcon />}
                     onClick={() => navigate("/orders")}
@@ -170,8 +170,8 @@ export default function OrderCreate() {
                         <Button variant="outlined" onClick={() => navigate("/orders")} sx={{ borderRadius: "8px" }}>
                             Cancel
                         </Button>
-                        <Button 
-                            variant="contained" 
+                        <Button
+                            variant="contained"
                             onClick={handleSubmit}
                             disabled={createMutation.isPending}
                             sx={{ borderRadius: "8px", px: 4 }}

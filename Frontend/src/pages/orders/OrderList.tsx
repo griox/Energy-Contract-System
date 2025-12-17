@@ -22,6 +22,9 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    useMediaQuery,
+    Collapse,
+    CardContent,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -35,8 +38,8 @@ import EuroIcon from "@mui/icons-material/Euro";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { useTranslation } from "react-i18next";
+
 import NavMenu from "@/components/NavMenu/NavMenu";
-import { Menu, MenuIcon } from "lucide-react";
 import { useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder } from "@/hooks/useOrders";
 import { useContracts } from "@/hooks/useContracts";
 import { OrderType, OrderStatus } from "@/types/order";
@@ -53,7 +56,8 @@ export default function OrderList() {
     const { t } = useTranslation();
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
-    const [filterOpen, setFilterOpen] = useState(false);
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
     // ==========================
     // STATE: FILTER / SORT / PAGINATION
     // ==========================
@@ -65,22 +69,18 @@ export default function OrderList() {
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 10;
 
+    // mobile filter collapse
+    const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
     // ==========================
     // POPUP STATE
     // ==========================
-        const [formOpen, setFormOpen] = useState(false);
-        const [formMode, setFormMode] = useState<"create" | "edit">("create");
-        const [editingOrder, setEditingOrder] = useState<OrderAny | null>(null);
+    const [formOpen, setFormOpen] = useState(false);
+    const [formMode, setFormMode] = useState<"create" | "edit">("create");
+    const [editingOrder, setEditingOrder] = useState<OrderAny | null>(null);
 
-        const [deleteOpen, setDeleteOpen] = useState(false);
-        const [deletingOrder, setDeletingOrder] = useState<OrderAny | null>(null);
-        //
-        const [open, setOpen] = React.useState(false);
-
-    const toggleMenu = () => {
-    setOpen(!open);
-    };
-
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deletingOrder, setDeletingOrder] = useState<OrderAny | null>(null);
 
     // ==========================
     // API HOOKS
@@ -143,14 +143,9 @@ export default function OrderList() {
         }
     };
 
-    // ✅ Dịch status bằng statusMap trong i18n
-    const getStatusLabel = (s: number) => {
-        return t(`orders.statusMap.${s}`, { defaultValue: "Unknown" });
-    };
+    const getStatusLabel = (s: number) => t(`orders.statusMap.${s}`, { defaultValue: "Unknown" });
 
-    const getTypeLabel = (type: number) => {
-        return type === OrderType.Electricity ? t("orders.electricity") : t("orders.gas");
-    };
+    const getTypeLabel = (type: number) => (type === OrderType.Electricity ? t("orders.electricity") : t("orders.gas"));
 
     const toggleSort = (field: SortKey) => {
         setPage(1);
@@ -184,6 +179,17 @@ export default function OrderList() {
         });
         return m;
     }, [contracts]);
+
+    const formatDate = (iso?: string) => (iso ? String(iso).split("T")[0] : "—");
+
+    const clearFilters = () => {
+        setSearch("");
+        setStatus("");
+        setOrderType("");
+        setSortBy("createdAt");
+        setSortDesc(true);
+        setPage(1);
+    };
 
     // ==========================
     // FORM DIALOG
@@ -307,27 +313,117 @@ export default function OrderList() {
     };
 
     // ==========================
+    // MOBILE CARD ITEM (giống style ContractList)
+    // ==========================
+    const MobileOrderCard = ({ order }: { order: any }) => {
+        const contractNo = contractNumberById.get(Number(order.contractId)) ?? "-";
+        return (
+            <Card
+                variant="outlined"
+                sx={{
+                    borderRadius: 3,
+                    borderColor: alpha(theme.palette.divider, 0.6),
+                    bgcolor: "background.paper",
+                    overflow: "hidden",
+                }}
+            >
+                <CardContent sx={{ p: 2 }}>
+                    {/* top row */}
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={900} sx={{ color: "primary.main" }} noWrap>
+                                {order.orderNumber}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" noWrap sx={{ mt: 0.25 }}>
+                                {t("orders.contract")}: <b>{contractNo}</b>
+                            </Typography>
+                        </Box>
+
+                        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+                            <Chip
+                                label={getStatusLabel(order.status)}
+                                size="small"
+                                color={getStatusColor(order.status) as any}
+                                variant={isDark ? "outlined" : "filled"}
+                                sx={{ fontWeight: 900 }}
+                            />
+                            <IconButton size="small" color="primary" onClick={() => openEditPopup(order)}>
+                                <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => openDeletePopup(order)}>
+                                <DeleteIcon fontSize="small" />
+                            </IconButton>
+                        </Stack>
+                    </Stack>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    {/* rows */}
+                    <Stack spacing={1}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" color="text.secondary">
+                                {t("orders.type")}
+                            </Typography>
+                            <Chip
+                                icon={order.orderType === OrderType.Electricity ? <FlashOnIcon /> : <LocalGasStationIcon />}
+                                label={getTypeLabel(order.orderType)}
+                                size="small"
+                                variant={isDark ? "outlined" : "filled"}
+                            />
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" color="text.secondary">
+                                {t("orders.startDate")}
+                            </Typography>
+                            <Typography variant="body2" fontWeight={800}>
+                                {formatDate(order.startDate)}
+                            </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" color="text.secondary">
+                                {t("orders.endDate")}
+                            </Typography>
+                            <Typography variant="body2" fontWeight={800}>
+                                {formatDate(order.endDate)}
+                            </Typography>
+                        </Stack>
+
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" color="text.secondary">
+                                {t("orders.fee")}
+                            </Typography>
+                            <Typography variant="body2" fontWeight={800}>
+                                {order.topupFee?.toLocaleString?.()} €
+                            </Typography>
+                        </Stack>
+                    </Stack>
+                </CardContent>
+            </Card>
+        );
+    };
+
+    // ==========================
     // RENDER
     // ==========================
     return (
-        
-        <Box sx={{ display: "flex" }}>
-             {/* NAV MENU SIDEBAR */}
-        <NavMenu />
+        <Box
+            sx={{
+                display: "flex",
+                // ✅ FIX LỖI: mobile phải column để NavMenu topbar nằm trên, content nằm dưới
+                flexDirection: { xs: "column", md: "row" },
+                minHeight: "100vh",
+                bgcolor: pageBg,
+            }}
+        >
+            <NavMenu />
+
             <Box
                 sx={{
-                    display: { xs: "flex", md: "none" },
-                    justifyContent: "flex-start",
-                    alignItems: "center",
-                    mb: 1,
-                }}
-                > 
-            </Box>
-                
-            <Box
-                sx={{
-                    ml: "240px",
-                    p: 4,
+                    // ✅ FIX LỖI: mobile không được ml 240px
+                    ml: { xs: 0, md: "240px" },
+                    p: { xs: 2, md: 4 },
                     width: "100%",
                     minHeight: "100vh",
                     bgcolor: pageBg,
@@ -335,307 +431,516 @@ export default function OrderList() {
                 }}
             >
                 {/* HEADER */}
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
-                    <Box>
-                        <Typography variant="h4" fontWeight={800}>
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    justifyContent="space-between"
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    spacing={1.25}
+                    mb={isMobile ? 2 : 4}
+                >
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography variant={isMobile ? "h5" : "h4"} fontWeight={900} noWrap>
                             {t("orders.management")}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" noWrap>
                             {t("orders.subtitle")}
                         </Typography>
                     </Box>
 
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={openCreatePopup}>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={openCreatePopup}
+                        fullWidth={isMobile}
+                        sx={{ borderRadius: 2, fontWeight: 900, py: isMobile ? 1.1 : undefined }}
+                    >
                         {t("orders.create")}
                     </Button>
                 </Stack>
-                <IconButton
-                    sx={{ display: { xs: "flex", md: "none" } }}
-                    onClick={() => setFilterOpen(true)}
-                >
-                    <MenuIcon />
-                </IconButton>
-                
 
                 {/* FILTER */}
-                <Card
-                    sx={{
-                        p: 2,
-                        mb: 3,
-                        bgcolor: cardBg,
-                        border: `1px solid ${borderColor}`,
-                        boxShadow: isDark ? "none" : undefined,
-                    }}
-                >
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                        {/* SEARCH */}
-                        <TextField
-                            fullWidth
-                            size="small"
-                            placeholder={t("common.search")}
-                            value={search}
-                            onChange={(e) => {
-                                setSearch(e.target.value);
-                                setPage(1);
-                            }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-
-                        {/* STATUS */}
-                        <TextField
-                            select
-                            size="small"
-                            label={t("orders.status")}
-                            value={status}
-                            onChange={(e) => {
-                                setStatus(e.target.value === "" ? "" : Number(e.target.value));
-                                setPage(1);
-                            }}
-                            sx={{ minWidth: 150 }}
-                        >
-                            <MenuItem value="">{t("common.all")}</MenuItem>
-                            <MenuItem value={OrderStatus.Active}>{t("orders.statusActive")}</MenuItem>
-                            <MenuItem value={OrderStatus.Pending}>{t("orders.statusPending")}</MenuItem>
-                            <MenuItem value={OrderStatus.Completed}>{t("orders.statusCompleted")}</MenuItem>
-                            <MenuItem value={OrderStatus.Cancelled}>{t("orders.statusCancelled")}</MenuItem>
-                        </TextField>
-
-                        {/* ORDER TYPE */}
-                        <TextField
-                            select
-                            size="small"
-                            label={t("orders.type")}
-                            value={orderType}
-                            onChange={(e) => {
-                                setOrderType(e.target.value === "" ? "" : Number(e.target.value));
-                                setPage(1);
-                            }}
-                            sx={{ minWidth: 150 }}
-                        >
-                            <MenuItem value="">{t("common.all")}</MenuItem>
-                            <MenuItem value={OrderType.Electricity}>{t("orders.electricity")}</MenuItem>
-                            <MenuItem value={OrderType.Gas}>{t("orders.gas")}</MenuItem>
-                        </TextField>
-
-                        {/* SORT BY */}
-                        <TextField
-                            select
-                            size="small"
-                            label={t("Sort By", { defaultValue: "Sort By" })}
-                            value={sortBy}
-                            onChange={(e) => {
-                                setSortBy(e.target.value as SortKey);
-                                setPage(1);
-                            }}
-                            sx={{ minWidth: 180 }}
-                        >
-                            <MenuItem value="createdAt">{t("orders.createdAt")}</MenuItem>
-                            <MenuItem value="orderNumber">{t("orders.orderNumber")}</MenuItem>
-                            <MenuItem value="status">{t("orders.status")}</MenuItem>
-                            <MenuItem value="startDate">{t("orders.startDate")}</MenuItem>
-                            <MenuItem value="endDate">{t("orders.endDate")}</MenuItem>
-                            <MenuItem value="topupFee">{t("orders.fee")}</MenuItem>
-                        </TextField>
-
-                        {/* SORT DIR */}
-                        <Button
-                            variant="outlined"
-                            onClick={() => {
-                                setSortDesc(!sortDesc);
-                                setPage(1);
-                            }}
-                        >
-                            {sortDesc ? t("DESC", { defaultValue: "DESC" }) : t("ASC", { defaultValue: "ASC" })}
-                        </Button>
-                    </Stack>
-                </Card>
-
-                {/* TABLE */}
-                <Card
-                    sx={{
-                        borderRadius: 3,
-                        overflow: "hidden",
-                        bgcolor: cardBg,
-                        border: `1px solid ${borderColor}`,
-                        boxShadow: isDark ? "none" : undefined,
-                    }}
-                >
-                    <Table>
-                        <TableHead sx={{ bgcolor: headBg }}>
-                            <TableRow>
-                                <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("orderNumber")}>
-                                    <Stack direction="row" spacing={0.5} alignItems="center">
-                                        <span>{t("orders.orderNumber")}</span>
-                                        {renderSortIcon("orderNumber")}
-                                    </Stack>
-                                </TableCell>
-
-                                <TableCell sx={headCellSx}>{t("orders.contract")}</TableCell>
-
-                                <TableCell sx={headCellSx}>{t("orders.type")}</TableCell>
-
-                                <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("status")}>
-                                    <Stack direction="row" spacing={0.5} alignItems="center">
-                                        <span>{t("orders.status")}</span>
-                                        {renderSortIcon("status")}
-                                    </Stack>
-                                </TableCell>
-
-                                <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("startDate")}>
-                                    <Stack direction="row" spacing={0.5} alignItems="center">
-                                        <span>{t("orders.startDate")}</span>
-                                        {renderSortIcon("startDate")}
-                                    </Stack>
-                                </TableCell>
-
-                                <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("endDate")}>
-                                    <Stack direction="row" spacing={0.5} alignItems="center">
-                                        <span>{t("orders.endDate")}</span>
-                                        {renderSortIcon("endDate")}
-                                    </Stack>
-                                </TableCell>
-
-                                <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("topupFee")}>
-                                    <Stack direction="row" spacing={0.5} alignItems="center">
-                                        <span>{t("orders.fee")}</span>
-                                        {renderSortIcon("topupFee")}
-                                    </Stack>
-                                </TableCell>
-
-                                <TableCell align="right" sx={headCellSx}>
-                                    {t("common.actions")}
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                                        <CircularProgress size={24} />
-                                    </TableCell>
-                                </TableRow>
-                            ) : orders.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                                        {t("orders.noOrders")}
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                orders.map((order: any) => (
-                                    <TableRow key={order.id} hover sx={{ "&:hover": { bgcolor: rowHoverBg } }}>
-                                        <TableCell sx={{ color: "text.primary", fontWeight: 600 }}>
-                                            {order.orderNumber}
-                                        </TableCell>
-
-                                        {/* Contract Number (map từ contractId -> contractNumber) */}
-                                        <TableCell sx={{ color: "text.primary" }}>
-                                            {contractNumberById.get(Number(order.contractId)) ?? "-"}
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <Chip
-                                                icon={order.orderType === OrderType.Electricity ? <FlashOnIcon /> : <LocalGasStationIcon />}
-                                                label={getTypeLabel(order.orderType)}
-                                                size="small"
-                                                variant={isDark ? "outlined" : "filled"}
-                                            />
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <Chip
-                                                label={getStatusLabel(order.status)}
-                                                size="small"
-                                                color={getStatusColor(order.status) as any}
-                                                variant={isDark ? "outlined" : "filled"}
-                                            />
-                                        </TableCell>
-
-                                        <TableCell sx={{ color: "text.primary" }}>
-                                            {order.startDate?.split("T")[0]}
-                                        </TableCell>
-
-                                        <TableCell sx={{ color: "text.primary" }}>
-                                            {order.endDate?.split("T")[0]}
-                                        </TableCell>
-
-                                        <TableCell sx={{ color: "text.primary" }}>
-                                            {order.topupFee?.toLocaleString?.()} €
-                                        </TableCell>
-
-                                        <TableCell align="right">
-                                            <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                                                <IconButton size="small" color="primary" onClick={() => openEditPopup(order)}>
-                                                    <EditIcon fontSize="small" />
-                                                </IconButton>
-
-                                                <IconButton size="small" color="error" onClick={() => openDeletePopup(order)}>
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </Stack>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-
-                    {/* PAGINATION BAR */}
-                    <Divider sx={{ borderColor }} />
-
-                    <Box
+                {isMobile ? (
+                    <Card
                         sx={{
-                            px: 2,
-                            py: 1.5,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            bgcolor: isDark ? alpha(theme.palette.common.black, 0.25) : "background.paper",
+                            p: 2,
+                            mb: 2,
+                            bgcolor: cardBg,
+                            border: `1px solid ${borderColor}`,
+                            borderRadius: 3,
+                            boxShadow: "none",
                         }}
                     >
-                        <Typography variant="body2" color="text.secondary">
-                            {t("Showing", { defaultValue: "Showing" })} <b>{shownCount}</b> {t("of", { defaultValue: "of" })}{" "}
-                            <b>{totalCount}</b>
-                        </Typography>
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            onClick={() => setMobileFilterOpen((v) => !v)}
+                            sx={{ cursor: "pointer" }}
+                        >
+                            <Box>
+                                <Typography fontWeight={900}>{t("Search...", { defaultValue: "Search..." })}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {t("Apply / Clear", { defaultValue: "Apply / Clear" })}
+                                </Typography>
+                            </Box>
 
-                        <Stack direction="row" spacing={2} alignItems="center">
-                            <Button
-                                variant="text"
-                                disabled={!canPrev || isLoading}
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                sx={{ fontSize: 12 }}
+                            <IconButton size="small" sx={{ ml: 1 }}>
+                                {mobileFilterOpen ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
+                            </IconButton>
+                        </Stack>
+
+                        <Collapse in={mobileFilterOpen}>
+                            <Divider sx={{ my: 1.5, borderColor }} />
+
+                            <Stack spacing={1.25}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    placeholder={t("common.search")}
+                                    value={search}
+                                    onChange={(e) => {
+                                        setSearch(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label={t("orders.status")}
+                                    value={status}
+                                    onChange={(e) => {
+                                        setStatus(e.target.value === "" ? "" : Number(e.target.value));
+                                        setPage(1);
+                                    }}
+                                >
+                                    <MenuItem value="">{t("common.all")}</MenuItem>
+                                    <MenuItem value={OrderStatus.Active}>{t("orders.statusActive")}</MenuItem>
+                                    <MenuItem value={OrderStatus.Pending}>{t("orders.statusPending")}</MenuItem>
+                                    <MenuItem value={OrderStatus.Completed}>{t("orders.statusCompleted")}</MenuItem>
+                                    <MenuItem value={OrderStatus.Cancelled}>{t("orders.statusCancelled")}</MenuItem>
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label={t("orders.type")}
+                                    value={orderType}
+                                    onChange={(e) => {
+                                        setOrderType(e.target.value === "" ? "" : Number(e.target.value));
+                                        setPage(1);
+                                    }}
+                                >
+                                    <MenuItem value="">{t("common.all")}</MenuItem>
+                                    <MenuItem value={OrderType.Electricity}>{t("orders.electricity")}</MenuItem>
+                                    <MenuItem value={OrderType.Gas}>{t("orders.gas")}</MenuItem>
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label={t("Sort By", { defaultValue: "Sort By" })}
+                                    value={sortBy}
+                                    onChange={(e) => {
+                                        setSortBy(e.target.value as SortKey);
+                                        setPage(1);
+                                    }}
+                                >
+                                    <MenuItem value="createdAt">{t("orders.createdAt")}</MenuItem>
+                                    <MenuItem value="orderNumber">{t("orders.orderNumber")}</MenuItem>
+                                    <MenuItem value="status">{t("orders.status")}</MenuItem>
+                                    <MenuItem value="startDate">{t("orders.startDate")}</MenuItem>
+                                    <MenuItem value="endDate">{t("orders.endDate")}</MenuItem>
+                                    <MenuItem value="topupFee">{t("orders.fee")}</MenuItem>
+                                </TextField>
+
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        fullWidth
+                                        variant="outlined"
+                                        onClick={() => {
+                                            clearFilters();
+                                        }}
+                                        sx={{ borderRadius: 2, fontWeight: 900 }}
+                                    >
+                                        {t("Clear", { defaultValue: "Clear" })}
+                                    </Button>
+
+                                    <Button
+                                        fullWidth
+                                        variant="contained"
+                                        onClick={() => setMobileFilterOpen(false)}
+                                        sx={{ borderRadius: 2, fontWeight: 900 }}
+                                    >
+                                        {t("Apply", { defaultValue: "Apply" })}
+                                    </Button>
+                                </Stack>
+
+                                <Button
+                                    variant="text"
+                                    onClick={() => {
+                                        setSortDesc((v) => !v);
+                                        setPage(1);
+                                    }}
+                                    sx={{ fontWeight: 900 }}
+                                >
+                                    {sortDesc ? t("DESC", { defaultValue: "DESC" }) : t("ASC", { defaultValue: "ASC" })}
+                                </Button>
+                            </Stack>
+                        </Collapse>
+                    </Card>
+                ) : (
+                    <Card
+                        sx={{
+                            p: 2,
+                            mb: 3,
+                            bgcolor: cardBg,
+                            border: `1px solid ${borderColor}`,
+                            boxShadow: isDark ? "none" : undefined,
+                            borderRadius: 3,
+                        }}
+                    >
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                placeholder={t("common.search")}
+                                value={search}
+                                onChange={(e) => {
+                                    setSearch(e.target.value);
+                                    setPage(1);
+                                }}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+
+                            <TextField
+                                select
+                                size="small"
+                                label={t("orders.status")}
+                                value={status}
+                                onChange={(e) => {
+                                    setStatus(e.target.value === "" ? "" : Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                sx={{ minWidth: 150 }}
                             >
-                                {t("prev")}
-                            </Button>
+                                <MenuItem value="">{t("common.all")}</MenuItem>
+                                <MenuItem value={OrderStatus.Active}>{t("orders.statusActive")}</MenuItem>
+                                <MenuItem value={OrderStatus.Pending}>{t("orders.statusPending")}</MenuItem>
+                                <MenuItem value={OrderStatus.Completed}>{t("orders.statusCompleted")}</MenuItem>
+                                <MenuItem value={OrderStatus.Cancelled}>{t("orders.statusCancelled")}</MenuItem>
+                            </TextField>
 
-                            <Typography variant="body2" color="text.secondary">
-                                {t("Page")} <b>{page}</b> / <b>{totalPages}</b>
-                            </Typography>
+                            <TextField
+                                select
+                                size="small"
+                                label={t("orders.type")}
+                                value={orderType}
+                                onChange={(e) => {
+                                    setOrderType(e.target.value === "" ? "" : Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                sx={{ minWidth: 150 }}
+                            >
+                                <MenuItem value="">{t("common.all")}</MenuItem>
+                                <MenuItem value={OrderType.Electricity}>{t("orders.electricity")}</MenuItem>
+                                <MenuItem value={OrderType.Gas}>{t("orders.gas")}</MenuItem>
+                            </TextField>
+
+                            <TextField
+                                select
+                                size="small"
+                                label={t("Sort By", { defaultValue: "Sort By" })}
+                                value={sortBy}
+                                onChange={(e) => {
+                                    setSortBy(e.target.value as SortKey);
+                                    setPage(1);
+                                }}
+                                sx={{ minWidth: 180 }}
+                            >
+                                <MenuItem value="createdAt">{t("orders.createdAt")}</MenuItem>
+                                <MenuItem value="orderNumber">{t("orders.orderNumber")}</MenuItem>
+                                <MenuItem value="status">{t("orders.status")}</MenuItem>
+                                <MenuItem value="startDate">{t("orders.startDate")}</MenuItem>
+                                <MenuItem value="endDate">{t("orders.endDate")}</MenuItem>
+                                <MenuItem value="topupFee">{t("orders.fee")}</MenuItem>
+                            </TextField>
 
                             <Button
-                                variant="text"
-                                disabled={!canNext || isLoading}
-                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                sx={{ fontSize: 12 }}
+                                variant="outlined"
+                                onClick={() => {
+                                    setSortDesc(!sortDesc);
+                                    setPage(1);
+                                }}
                             >
-                                {t("next")}
+                                {sortDesc ? t("DESC", { defaultValue: "DESC" }) : t("ASC", { defaultValue: "ASC" })}
                             </Button>
                         </Stack>
-                    </Box>
-                </Card>
+                    </Card>
+                )}
+
+                {/* LIST / TABLE */}
+                {isMobile ? (
+                    <Stack spacing={1.5}>
+                        {isLoading ? (
+                            <Card
+                                sx={{
+                                    p: 2,
+                                    borderRadius: 3,
+                                    bgcolor: "background.paper",
+                                    border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                                    boxShadow: "none",
+                                }}
+                            >
+                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                    <CircularProgress size={18} />
+                                    <Typography color="text.secondary">{t("Loading data...")}</Typography>
+                                </Stack>
+                            </Card>
+                        ) : orders.length === 0 ? (
+                            <Card
+                                sx={{
+                                    p: 2,
+                                    borderRadius: 3,
+                                    bgcolor: "background.paper",
+                                    border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                                    boxShadow: "none",
+                                }}
+                            >
+                                <Typography fontWeight={900}>{t("orders.noOrders")}</Typography>
+                            </Card>
+                        ) : (
+                            orders.map((order: any) => <MobileOrderCard key={order.id} order={order} />)
+                        )}
+
+                        {/* MOBILE PAGINATION CARD (giống mẫu) */}
+                        <Card
+                            sx={{
+                                borderRadius: 3,
+                                bgcolor: "background.paper",
+                                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                                boxShadow: "none",
+                            }}
+                        >
+                            <CardContent sx={{ p: 2 }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="body2" color="text.secondary">
+                                        {t("Page")} <b>{page}</b> / <b>{totalPages}</b>
+                                    </Typography>
+
+                                    <Stack direction="row" spacing={1}>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            disabled={!canPrev || isLoading}
+                                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                            sx={{ borderRadius: 2, fontWeight: 900 }}
+                                        >
+                                            {t("prev")}
+                                        </Button>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            disabled={!canNext || isLoading}
+                                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                            sx={{ borderRadius: 2, fontWeight: 900 }}
+                                        >
+                                            {t("next")}
+                                        </Button>
+                                    </Stack>
+                                </Stack>
+
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                    {t("Showing", { defaultValue: "Showing" })} <b>{shownCount}</b> {t("of", { defaultValue: "of" })}{" "}
+                                    <b>{totalCount}</b>
+                                </Typography>
+                            </CardContent>
+                        </Card>
+                    </Stack>
+                ) : (
+                    <Card
+                        sx={{
+                            borderRadius: 3,
+                            overflow: "hidden",
+                            bgcolor: cardBg,
+                            border: `1px solid ${borderColor}`,
+                            boxShadow: isDark ? "none" : undefined,
+                        }}
+                    >
+                        <Table>
+                            <TableHead sx={{ bgcolor: headBg }}>
+                                <TableRow>
+                                    <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("orderNumber")}>
+                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                            <span>{t("orders.orderNumber")}</span>
+                                            {renderSortIcon("orderNumber")}
+                                        </Stack>
+                                    </TableCell>
+
+                                    <TableCell sx={headCellSx}>{t("orders.contract")}</TableCell>
+                                    <TableCell sx={headCellSx}>{t("orders.type")}</TableCell>
+
+                                    <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("status")}>
+                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                            <span>{t("orders.status")}</span>
+                                            {renderSortIcon("status")}
+                                        </Stack>
+                                    </TableCell>
+
+                                    <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("startDate")}>
+                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                            <span>{t("orders.startDate")}</span>
+                                            {renderSortIcon("startDate")}
+                                        </Stack>
+                                    </TableCell>
+
+                                    <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("endDate")}>
+                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                            <span>{t("orders.endDate")}</span>
+                                            {renderSortIcon("endDate")}
+                                        </Stack>
+                                    </TableCell>
+
+                                    <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("topupFee")}>
+                                        <Stack direction="row" spacing={0.5} alignItems="center">
+                                            <span>{t("orders.fee")}</span>
+                                            {renderSortIcon("topupFee")}
+                                        </Stack>
+                                    </TableCell>
+
+                                    <TableCell align="right" sx={headCellSx}>
+                                        {t("common.actions")}
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                            <CircularProgress size={24} />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : orders.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                                            {t("orders.noOrders")}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    orders.map((order: any) => (
+                                        <TableRow key={order.id} hover sx={{ "&:hover": { bgcolor: rowHoverBg } }}>
+                                            <TableCell sx={{ color: "text.primary", fontWeight: 600 }}>{order.orderNumber}</TableCell>
+
+                                            <TableCell sx={{ color: "text.primary" }}>
+                                                {contractNumberById.get(Number(order.contractId)) ?? "-"}
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <Chip
+                                                    icon={order.orderType === OrderType.Electricity ? <FlashOnIcon /> : <LocalGasStationIcon />}
+                                                    label={getTypeLabel(order.orderType)}
+                                                    size="small"
+                                                    variant={isDark ? "outlined" : "filled"}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <Chip
+                                                    label={getStatusLabel(order.status)}
+                                                    size="small"
+                                                    color={getStatusColor(order.status) as any}
+                                                    variant={isDark ? "outlined" : "filled"}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell sx={{ color: "text.primary" }}>{formatDate(order.startDate)}</TableCell>
+                                            <TableCell sx={{ color: "text.primary" }}>{formatDate(order.endDate)}</TableCell>
+
+                                            <TableCell sx={{ color: "text.primary" }}>{order.topupFee?.toLocaleString?.()} €</TableCell>
+
+                                            <TableCell align="right">
+                                                <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                                                    <IconButton size="small" color="primary" onClick={() => openEditPopup(order)}>
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+
+                                                    <IconButton size="small" color="error" onClick={() => openDeletePopup(order)}>
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Stack>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {/* PAGINATION BAR */}
+                        <Divider sx={{ borderColor }} />
+
+                        <Box
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                bgcolor: isDark ? alpha(theme.palette.common.black, 0.25) : "background.paper",
+                            }}
+                        >
+                            <Typography variant="body2" color="text.secondary">
+                                {t("Showing", { defaultValue: "Showing" })} <b>{shownCount}</b> {t("of", { defaultValue: "of" })}{" "}
+                                <b>{totalCount}</b>
+                            </Typography>
+
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Button
+                                    variant="text"
+                                    disabled={!canPrev || isLoading}
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    sx={{ fontSize: 12 }}
+                                >
+                                    {t("prev")}
+                                </Button>
+
+                                <Typography variant="body2" color="text.secondary">
+                                    {t("Page")} <b>{page}</b> / <b>{totalPages}</b>
+                                </Typography>
+
+                                <Button
+                                    variant="text"
+                                    disabled={!canNext || isLoading}
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    sx={{ fontSize: 12 }}
+                                >
+                                    {t("next")}
+                                </Button>
+                            </Stack>
+                        </Box>
+                    </Card>
+                )}
 
                 {/* CREATE / EDIT DIALOG */}
                 <Dialog open={formOpen} onClose={closeForm} fullWidth maxWidth="md">
                     <DialogTitle sx={{ fontWeight: 800 }}>
-                        {formMode === "create"
-                            ? t("orders.create")
-                            : t("Edit Order", { defaultValue: "Edit Order" })}
+                        {formMode === "create" ? t("orders.create") : t("Edit Order", { defaultValue: "Edit Order" })}
                         {formMode === "edit" && editingOrder?.orderNumber ? ` — ${editingOrder.orderNumber}` : ""}
                     </DialogTitle>
 

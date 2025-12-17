@@ -13,8 +13,7 @@ export const useCreateContract = () => {
     return useMutation({
         mutationFn: (data: CreateContractParams) => contractService.create(data),
         onSuccess: () => {
-            toast.success("Tạo hợp đồng thành công!");
-            // Làm mới danh sách hợp đồng ngay lập tức
+
             queryClient.invalidateQueries({ queryKey: ['contracts'] });
         },
         onError: (error: any) => {
@@ -29,15 +28,15 @@ export const useUpdateContract = () => {
 
     return useMutation({
         // mutationFn nhận vào object chứa id và data
-        mutationFn: ({ id, data }: { id: number; data: CreateContractParams }) => 
+        mutationFn: ({ id, data }: { id: number; data: CreateContractParams }) =>
             contractService.update(id, data),
-            
+
         onSuccess: (_, variables) => {
             toast.success("Cập nhật hợp đồng thành công!");
-            
+
             // 1. Làm mới danh sách để thấy thay đổi
             queryClient.invalidateQueries({ queryKey: ['contracts'] });
-            
+
             // 2. Làm mới chi tiết hợp đồng đó (nếu đang xem trang detail)
             queryClient.invalidateQueries({ queryKey: ['contract', variables.id] });
         },
@@ -54,7 +53,7 @@ export const useDeleteContract = () => {
 
     return useMutation({
         mutationFn: (id: number) => contractService.delete(id),
-        
+
         onSuccess: () => {
             toast.success("Đã xóa hợp đồng!");
             // Làm mới danh sách sau khi xóa

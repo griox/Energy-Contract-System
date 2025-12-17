@@ -109,9 +109,8 @@ export default function NavMenu() {
               sx={{
                 mb: 1,
                 borderRadius: 2,
-                border: `1px solid ${
-                  active ? alpha(theme.palette.primary.main, 0.35) : "transparent"
-                }`,
+                border: `1px solid ${active ? alpha(theme.palette.primary.main, 0.35) : "transparent"
+                  }`,
                 bgcolor: active ? alpha(theme.palette.primary.main, 0.12) : "transparent",
                 "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.12) }
               }}
@@ -147,27 +146,41 @@ export default function NavMenu() {
   return (
     <>
       {/* MOBILE TOP BAR */}
+      {/* MOBILE TOP BAR */}
       <Box
         sx={{
           display: { xs: "flex", md: "none" },
           alignItems: "center",
-          height: 60,
+          gap: 1.5,
+          height: 64,
           px: 2,
           borderBottom: 1,
           borderColor: "divider",
           bgcolor: "background.paper",
           position: "sticky",
           top: 0,
-          zIndex: 999
+          zIndex: 999,
         }}
       >
-        <IconButton onClick={() => setOpen(true)}>
+        <IconButton onClick={() => setOpen(true)} sx={{ mr: 0.5 }}>
           <Menu size={26} />
         </IconButton>
 
-        <Typography ml={2} fontWeight={700}>
-          
-        </Typography>
+        {/* Title area */}
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="h4"
+            fontWeight={900}
+            color="#FF9900"
+            noWrap
+            sx={{ lineHeight: 1.1 }}
+          >
+            {t("INFODATION")}
+          </Typography>
+
+          <Typography variant="caption" color="text.secondary" noWrap>
+          </Typography>
+        </Box>
       </Box>
 
       {/* MOBILE MENU DRAWER */}

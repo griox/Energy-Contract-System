@@ -10,8 +10,7 @@ export const useCreateReseller = () => {
     return useMutation({
         mutationFn: (data: CreateResellerParams) => resellerService.create(data),
         onSuccess: () => {
-            toast.success("Tạo Reseller thành công!");
-            // Làm mới danh sách
+
             queryClient.invalidateQueries({ queryKey: ['resellers'] });
         },
         onError: (error: any) => {
@@ -26,15 +25,15 @@ export const useUpdateReseller = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: CreateResellerParams }) => 
+        mutationFn: ({ id, data }: { id: number; data: CreateResellerParams }) =>
             resellerService.update(id, data),
-            
+
         onSuccess: (_, variables) => {
             toast.success("Cập nhật Reseller thành công!");
-            
+
             // 1. Làm mới danh sách tổng
             queryClient.invalidateQueries({ queryKey: ['resellers'] });
-            
+
             // 2. Làm mới chi tiết (nếu đang xem modal/trang chi tiết)
             queryClient.invalidateQueries({ queryKey: ['reseller', variables.id] });
         },
@@ -51,9 +50,9 @@ export const useDeleteReseller = () => {
 
     return useMutation({
         mutationFn: (id: number) => resellerService.delete(id),
-        
+
         onSuccess: () => {
-            toast.success("Đã xóa Reseller!");
+
             queryClient.invalidateQueries({ queryKey: ['resellers'] });
         },
         onError: (error: any) => {

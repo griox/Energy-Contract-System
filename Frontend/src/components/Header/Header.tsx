@@ -7,7 +7,6 @@ import {
     Stack,
     Typography
 } from "@mui/material";
-// import { useNavigate } from "react-router-dom"; // Removed as navigation is handled inside forms or not needed here directly
 import { LoginForm } from "@/components/login-form";
 import { SignupForm } from "@/components/signup-form";
 
@@ -15,18 +14,16 @@ const Header: React.FC = () => {
     const [openLogin, setOpenLogin] = React.useState(false);
     const [openRegister, setOpenRegister] = React.useState(false);
 
-    // Helper to switch from Login to Register
-    const handleSwitchToRegister = (e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent default anchor behavior
+    // Hàm chuyển sang form đăng ký
+    const handleSwitchToRegister = () => {
         setOpenLogin(false);
-        setOpenRegister(true);
+        setTimeout(() => setOpenRegister(true), 100); // Thêm delay nhỏ để tránh xung đột modal nếu cần
     };
 
-    // Helper to switch from Register to Login
-    const handleSwitchToLogin = (e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent default anchor behavior
+    // Hàm chuyển sang form đăng nhập
+    const handleSwitchToLogin = () => {
         setOpenRegister(false);
-        setOpenLogin(true);
+        setTimeout(() => setOpenLogin(true), 100);
     };
 
     return (
@@ -88,15 +85,12 @@ const Header: React.FC = () => {
                 onClose={() => setOpenLogin(false)}
                 sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-                {/* Wrap in a div to handle click events for switching forms properly */}
-                <div onClick={(e) => {
-                    // Check if the click target is the "Sign up" link inside the form
-                    const target = e.target as HTMLElement;
-                    if (target.tagName === 'A' && target.getAttribute('href') === '/signup') {
-                        handleSwitchToRegister(e as unknown as React.MouseEvent);
-                    }
-                }}>
-                    <LoginForm className="w-[400px] bg-white text-black" />
+                {/* MUI Modal yêu cầu children phải có khả năng nhận ref, thẻ div bọc ngoài là an toàn nhất */}
+                <div style={{ outline: 'none' }}>
+                    <LoginForm 
+                        className="w-[400px] bg-white text-black" 
+                        onSwitchToSignup={handleSwitchToRegister} 
+                    />
                 </div>
             </Modal>
 
@@ -106,15 +100,11 @@ const Header: React.FC = () => {
                 onClose={() => setOpenRegister(false)}
                 sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-                {/* Wrap in a div to handle click events for switching forms properly */}
-                <div onClick={(e) => {
-                    // Check if the click target is the "Sign in" link inside the form
-                    const target = e.target as HTMLElement;
-                    if (target.tagName === 'A' && target.getAttribute('href') === '/') {
-                        handleSwitchToLogin(e as unknown as React.MouseEvent);
-                    }
-                }}>
-                    <SignupForm className="w-[500px] bg-white text-black" />
+                <div style={{ outline: 'none' }}>
+                    <SignupForm 
+                        className="w-[500px] bg-white text-black" 
+                        onSwitchToLogin={handleSwitchToLogin} 
+                    />
                 </div>
             </Modal>
         </>

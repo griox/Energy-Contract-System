@@ -1,17 +1,28 @@
 import {
-    Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, MenuItem, Button
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    MenuItem,
+    Button,
+    CircularProgress,
 } from "@mui/material";
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+
 import { useUpdateReseller } from "@/hooks/useResellers";
 
-export default function ResellerEdit({ open, onClose, data }: any) {
+export default function ResellerEdit({ open, onClose, onSaved, data }: any) {
+    const { t } = useTranslation();
     const updateMutation = useUpdateReseller();
 
     const [form, setForm] = useState({ name: "", type: "Broker" });
 
     useEffect(() => {
-        if (data) setForm({ name: data.name, type: data.type });
+        if (!data) return;
+        setForm({ name: data.name ?? "", type: data.type ?? "Broker" });
     }, [data]);
 
     const handleChange = (e: any) => {
@@ -24,17 +35,29 @@ export default function ResellerEdit({ open, onClose, data }: any) {
 
         updateMutation.mutate(
             { id: data.id, data: form },
-            { onSuccess: () => onClose() }
+            {
+                onSuccess: () => {
+                    toast.success(t("resellerEdit.toast.updated"));
+                    onSaved?.();
+                    onClose();
+                },
+                onError: (err: any) => {
+                    console.error("UPDATE RESELLER ERROR:", err);
+                    toast.error(t("resellerEdit.toast.updateFailed"));
+                },
+            }
         );
     };
 
+    const isSubmitting = updateMutation.isPending;
+
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle>Edit Reseller</DialogTitle>
+            <DialogTitle>{t("resellerEdit.title")}</DialogTitle>
 
             <DialogContent>
                 <TextField
-                    label="Name"
+                    label={t("resellerCreate.name")}
                     name="name"
                     fullWidth
                     margin="dense"
@@ -43,7 +66,7 @@ export default function ResellerEdit({ open, onClose, data }: any) {
                 />
 
                 <TextField
-                    label="Type"
+                    label={t("resellerCreate.type")}
                     name="type"
                     fullWidth
                     margin="dense"
@@ -51,19 +74,26 @@ export default function ResellerEdit({ open, onClose, data }: any) {
                     value={form.type}
                     onChange={handleChange}
                 >
-                    <MenuItem value="Broker">Broker</MenuItem>
-                    <MenuItem value="Agency">Agency</MenuItem>
+                    <MenuItem value="Broker">{t("Broker")}</MenuItem>
+                    <MenuItem value="Agency">{t("Agency")}</MenuItem>
+                    <MenuItem value="Supplier">{t("Supplier")}</MenuItem>
                 </TextField>
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button
-                    variant="contained"
-                    onClick={save}
-                    disabled={updateMutation.isPending} // Disable khi đang lưu
-                >
-                    {updateMutation.isPending ? "Saving..." : "Save"}
+                <Button onClick={onClose} disabled={isSubmitting}>
+                    {t("Cancel")}
+                </Button>
+
+                <Button variant="contained" onClick={save} disabled={isSubmitting}>
+                    {isSubmitting ? (
+                        <>
+                            <CircularProgress size={18} color="inherit" style={{ marginRight: 8 }} />
+                            {t("Saving...")}
+                        </>
+                    ) : (
+                        t("Save")
+                    )}
                 </Button>
             </DialogActions>
         </Dialog>

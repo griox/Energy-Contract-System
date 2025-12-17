@@ -54,9 +54,29 @@ export default function AppThemeProvider({ children }: { children: React.ReactNo
             components: {
                 MuiCssBaseline: {
                     styleOverrides: {
+                        html: {
+                            // ✅ quan trọng nhất: native controls (date picker) theo mode
+                            colorScheme: mode,
+                        },
                         body: {
                             backgroundColor: mode === "dark" ? "#0B1220" : "#F8FAFC",
                             transition: `background-color ${D}ms ${E}, color ${D}ms ${E}`,
+                        },
+
+                        // ✅ ép input/select/textarea dùng color-scheme
+                        "input, select, textarea": {
+                            colorScheme: mode,
+                        },
+
+                        // ✅ chỉnh icon calendar trong input date (chỉ icon thôi)
+                        'input[type="date"]::-webkit-calendar-picker-indicator': {
+                            filter: mode === "dark" ? "invert(1)" : "invert(0)",
+                            opacity: mode === "dark" ? 0.85 : 0.7,
+                        },
+
+                        // (optional) nếu m dùng scrollbar custom
+                        "*": {
+                            scrollbarColor: mode === "dark" ? "#334155 #0B1220" : "#CBD5E1 #F8FAFC",
                         },
                     },
                 },

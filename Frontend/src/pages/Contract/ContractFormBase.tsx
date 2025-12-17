@@ -18,6 +18,7 @@ import { FiArrowLeft } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import NavMenu from "@/components/NavMenu/NavMenu";
 import { useCreateContract } from "@/hooks/useContracts";
@@ -40,6 +41,7 @@ type FormValues = {
 const SIDEBAR_WIDTH = 240;
 
 export default function ContractCreate() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const theme = useTheme();
     const isDark = theme.palette.mode === "dark";
@@ -111,12 +113,12 @@ export default function ContractCreate() {
 
         createMutation.mutate(payload, {
             onSuccess: () => {
-                toast.success("Contract created!");
+                toast.success(t("contractCreate.toast.created"));
                 navigate("/contracts/list");
             },
             onError: (err: any) => {
                 console.error("CREATE ERROR:", err);
-                toast.error("Failed to create contract!");
+                toast.error(t("contractCreate.toast.createFailed"));
             },
         });
     };
@@ -135,7 +137,7 @@ export default function ContractCreate() {
                     p: 4,
                     width: "100%",
                     minHeight: "100vh",
-                    bgcolor: pageBg, // ✅ theo theme
+                    bgcolor: pageBg,
                     display: "flex",
                     justifyContent: "flex-start",
                     alignItems: "flex-start",
@@ -147,7 +149,7 @@ export default function ContractCreate() {
                         maxWidth: 1200,
                         borderRadius: 4,
                         overflow: "hidden",
-                        bgcolor: paperBg, // ✅ theo theme
+                        bgcolor: paperBg,
                         border: `1px solid ${borderColor}`,
                         boxShadow: isDark ? "none" : "0 10px 30px rgba(0,0,0,0.08)",
                     }}
@@ -160,7 +162,7 @@ export default function ContractCreate() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            bgcolor: paperBg, // ✅ theo theme (đừng xài "white")
+                            bgcolor: paperBg,
                         }}
                     >
                         <Box display="flex" alignItems="center" gap={1.5}>
@@ -169,10 +171,10 @@ export default function ContractCreate() {
                             </IconButton>
                             <Box>
                                 <Typography variant="h6" fontWeight={800} lineHeight={1.1} color="text.primary">
-                                    Create Contract
+                                    {t("contractCreate.title")}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                    Fill in information to create a new contract
+                                    {t("contractCreate.subtitle")}
                                 </Typography>
                             </Box>
                         </Box>
@@ -192,7 +194,7 @@ export default function ContractCreate() {
                                     sx={{
                                         p: 3,
                                         borderRadius: 4,
-                                        bgcolor: paperBg, // ✅ theo theme
+                                        bgcolor: paperBg,
                                         border: `1px solid ${borderColor}`,
                                         boxShadow: isDark ? "none" : "0 6px 18px rgba(0,0,0,0.06)",
                                     }}
@@ -200,30 +202,45 @@ export default function ContractCreate() {
                                     <Stack spacing={2.25}>
                                         {/* Row 1 */}
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                            <TextField label="First Name" {...register("firstName", { required: true })} fullWidth />
-                                            <TextField label="Last Name" {...register("lastName", { required: true })} fullWidth />
+                                            <TextField
+                                                label={t("contractCreate.firstName")}
+                                                {...register("firstName", { required: true })}
+                                                fullWidth
+                                            />
+                                            <TextField
+                                                label={t("contractCreate.lastName")}
+                                                {...register("lastName", { required: true })}
+                                                fullWidth
+                                            />
                                         </Stack>
 
                                         {/* Row 2 */}
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                            <TextField label="Email" {...register("email", { required: true })} fullWidth />
-                                            <TextField label="Phone" {...register("phone")} fullWidth />
+                                            <TextField
+                                                label={t("contractCreate.email")}
+                                                {...register("email", { required: true })}
+                                                fullWidth
+                                            />
+                                            <TextField
+                                                label={t("contractCreate.phone")}
+                                                {...register("phone")}
+                                                fullWidth
+                                            />
                                         </Stack>
 
                                         {/* Row 3 */}
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                             <TextField
                                                 type="date"
-                                                label="Start Date"
+                                                label={t("contractCreate.startDate")}
                                                 InputLabelProps={{ shrink: true }}
                                                 {...register("startDate")}
-                                                // giữ watch cho chắc, nhưng không bắt buộc
                                                 value={watch("startDate") || ""}
                                                 fullWidth
                                             />
                                             <TextField
                                                 type="date"
-                                                label="End Date"
+                                                label={t("contractCreate.endDate")}
                                                 InputLabelProps={{ shrink: true }}
                                                 {...register("endDate")}
                                                 value={watch("endDate") || ""}
@@ -233,20 +250,28 @@ export default function ContractCreate() {
 
                                         {/* Row 4 */}
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                                            <TextField label="Company Name" {...register("companyName")} fullWidth />
-                                            <TextField label="Bank Account Number" {...register("bankAccountNumber")} fullWidth />
+                                            <TextField
+                                                label={t("contractCreate.companyName")}
+                                                {...register("companyName")}
+                                                fullWidth
+                                            />
+                                            <TextField
+                                                label={t("contractCreate.bankAccountNumber")}
+                                                {...register("bankAccountNumber")}
+                                                fullWidth
+                                            />
                                         </Stack>
 
                                         {/* Row 5 */}
                                         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                                             <TextField
                                                 select
-                                                label="Reseller"
+                                                label={t("contractCreate.reseller")}
                                                 {...register("resellerId")}
                                                 value={watch("resellerId") || ""}
                                                 fullWidth
                                             >
-                                                <MenuItem value="">-- Select --</MenuItem>
+                                                <MenuItem value="">{t("contractCreate.select")}</MenuItem>
                                                 {resellers.map((r: any) => (
                                                     <MenuItem key={r.id} value={String(r.id)}>
                                                         {r.name}
@@ -256,12 +281,12 @@ export default function ContractCreate() {
 
                                             <TextField
                                                 select
-                                                label="Address"
+                                                label={t("contractCreate.address")}
                                                 {...register("addressId")}
                                                 value={watch("addressId") || ""}
                                                 fullWidth
                                             >
-                                                <MenuItem value="">-- Select --</MenuItem>
+                                                <MenuItem value="">{t("contractCreate.select")}</MenuItem>
                                                 {addresses.map((a: any) => (
                                                     <MenuItem key={a.id} value={String(a.id)}>
                                                         {a.houseNumber} • {a.zipCode}
@@ -280,7 +305,7 @@ export default function ContractCreate() {
                                         disabled={isSubmitting}
                                         sx={{ minWidth: 120 }}
                                     >
-                                        Cancel
+                                        {t("Cancel")}
                                     </Button>
 
                                     <Button
@@ -290,7 +315,7 @@ export default function ContractCreate() {
                                         startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : null}
                                         sx={{ minWidth: 140 }}
                                     >
-                                        {isSubmitting ? "Creating..." : "Create"}
+                                        {isSubmitting ? t("Creating...") : t("Create")}
                                     </Button>
                                 </Box>
                             </form>
