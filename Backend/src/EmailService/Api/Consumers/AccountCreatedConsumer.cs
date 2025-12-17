@@ -82,8 +82,10 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
             using var client = new SmtpClient();
             client.Timeout = 10000; // 10 giây
 
-            // Kết nối Brevo (Port 587 + StartTls)
-            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls);
+            _logger.LogInformation($"[DEBUG] Connecting to {smtpHost}:{smtpPort}...");
+
+    // 👇 SỬA THÀNH 'Auto'. Nó sẽ tự động chọn StartTls hoặc SSL tùy theo Port bạn điền trên Render
+            await client.ConnectAsync(smtpHost, smtpPort, MailKit.Security.SecureSocketOptions.Auto);
 
             // Đăng nhập
             await client.AuthenticateAsync(senderEmail, appPassword);
