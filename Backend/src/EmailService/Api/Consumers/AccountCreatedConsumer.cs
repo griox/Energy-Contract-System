@@ -78,8 +78,7 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
 using var client = new SmtpClient();
 client.Timeout = 20000; 
-client.CheckCertificateRevocation = false;
-client.ServerCertificateValidationCallback = (s, c, h, e) => true;// Tăng lên 20 giây xem sao
+
 
 try 
 {
