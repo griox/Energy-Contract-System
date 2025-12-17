@@ -22,7 +22,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import resellerService from "../services/customerService/ResellerService";
+import {resellerService} from "../services/customerService/ResellerService";
 import { toast } from "sonner"; // Đảm bảo đường dẫn đúng
 
 // 1. Định nghĩa Schema Validation bằng Zod
