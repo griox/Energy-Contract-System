@@ -2,7 +2,7 @@ using MassTransit;
 using Shared.Events;
 using MailKit.Net.Smtp;
 using MimeKit;
-using MailKit.Security; // Bắt buộc cho Brevo
+using MailKit.Security; 
 
 namespace EmailService.Api.Consumers;
 
@@ -24,15 +24,14 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
         try
         {
-            // 1. Đọc cấu hình Email
-            var senderName = _configuration["EmailSettings:SenderName"];
-            var senderEmail = _configuration["EmailSettings:SenderEmail"];
-            var appPassword = _configuration["EmailSettings:AppPassword"]; // Key Brevo
-            var smtpHost = _configuration["EmailSettings:SmtpHost"];       // smtp-relay.brevo.com
-            var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"]!); // 587
+            // 🔴 PHẦN HARD CODE (TEST CỨNG) 🔴
+            // Bỏ qua _configuration để test trực tiếp
+            var senderName = "Energy System";
+            var senderEmail = "nh920211@gmail.com"; // Email đăng nhập Brevo
+            var appPassword = "xsmtpsib-7e58567bd7f097083a167b6d155a0690af07328772211f0cd205f77af438bee8-eZu6BHzGjsNB75ED"; 
+            var smtpHost = "smtp-relay.brevo.com";
+            var smtpPort = 2525; // Dùng Port 2525 để tránh bị chặn
 
-            // 👇 QUAN TRỌNG: Thay localhost bằng link Frontend thật trên Render
-            // Ví dụ: https://my-energy-app.onrender.com/login
             var loginLink = "https://energy-contract-system-six.vercel.app"; 
 
             // 2. Tạo nội dung Email
@@ -78,31 +77,32 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
             message.Body = bodyBuilder.ToMessageBody();
 
-            // 3. Gửi Mail qua Brevo
+            // 3. Gửi Mail
             using var client = new SmtpClient();
             client.Timeout = 10000; // 10 giây
 
-            _logger.LogInformation($"[DEBUG] Connecting to {smtpHost}:{smtpPort}...");
+            // Log ra để kiểm chứng
+            _logger.LogInformation($"[DEBUG HARDCODE] Host: {smtpHost}:{smtpPort}");
+            _logger.LogInformation($"[DEBUG HARDCODE] User: {senderEmail}");
+            _logger.LogInformation($"[DEBUG HARDCODE] Pass Length: {appPassword.Length} chars");
 
-    // 👇 SỬA THÀNH 'Auto'. Nó sẽ tự động chọn StartTls hoặc SSL tùy theo Port bạn điền trên Render
-            await client.ConnectAsync(smtpHost, smtpPort, MailKit.Security.SecureSocketOptions.Auto);
+            _logger.LogInformation("Connecting...");
+            // Dùng Auto để nó tự chọn Ssl/StartTls
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.Auto);
 
-            // Đăng nhập
+            _logger.LogInformation("Authenticating...");
+            // Đăng nhập bằng thông tin cứng
             await client.AuthenticateAsync(senderEmail, appPassword);
 
-            // Gửi và ngắt kết nối
+            _logger.LogInformation("Sending...");
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation($"✅ [BREVO] Đã gửi mail thành công tới {msg.Email}");
+            _logger.LogInformation($"✅ [SUCCESS] TEST CỨNG THÀNH CÔNG! Gửi tới {msg.Email}");
         }
         catch (Exception ex)
         {
-            // Chỉ cần 1 tầng catch là đủ bắt mọi lỗi (từ config sai đến lỗi mạng)
-            _logger.LogError(ex, $"❌ [BREVO] Lỗi gửi mail: {ex.Message}");
-            
-            // Nếu muốn RabbitMQ gửi lại (Retry) khi lỗi mạng, hãy bỏ comment dòng dưới:
-            // throw; 
+            _logger.LogError(ex, $"❌ [HARDCODE FAIL] Lỗi: {ex.Message}");
         }
     }
 }
