@@ -11,6 +11,7 @@ using System.Text;
 using Api.Common.Messaging.Contracts;
 using Application.Features.Orders.Commands.GetMyOrder;
 using MassTransit;
+using Shared.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,11 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. GIAI ĐOẠN ĐĂNG KÝ SERVICES (DI CONTAINER)
 // ==========================================
 
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
+builder.Host.ConfigureSerilog("CustomerService");
 
 try
 {

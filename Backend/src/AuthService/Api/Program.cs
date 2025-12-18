@@ -7,13 +7,16 @@ using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;  // ← Chỉ cần dòng này
+using Microsoft.OpenApi.Models;
+using Shared.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
 // 1. ĐĂNG KÝ SERVICES & DB
 // ==========================================
+
+builder.Host.ConfigureSerilog("AuthService");
 
 builder.Services.AddDbContext<AuthDBContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

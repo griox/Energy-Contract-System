@@ -5,11 +5,12 @@ using Api.Jobs;
 using Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Shared.Logging;
 
 // ... imports khác
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Host.ConfigureSerilog("InvoiceService");
 // 1. Cấu hình Quartz
 builder.Services.AddQuartz(q =>
 {

@@ -13,13 +13,12 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using QuestPDF.Infrastructure;
+using Shared.Logging;
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.ConfigureSerilog("PdfService");
 // Configure QuestPDF License
 QuestPDF.Settings.License = LicenseType.Community; // Add this line
-// Configure Serilog
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .CreateLogger();
 
 builder.Host.UseSerilog();
 try

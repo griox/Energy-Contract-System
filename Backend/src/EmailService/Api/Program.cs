@@ -3,11 +3,11 @@ using Shared.Events;
 // Import các namespace chứa Consumer của bạn
 using Api.Consumers; 
 using EmailService.Api.Consumers;
+using Shared.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- Cấu hình Logging (Giữ nguyên nếu có) ---
-// builder.Host.AddSerilogLogging(); 
+builder.Host.ConfigureSerilog("EmailService");
 
 // --- Cấu hình MassTransit RabbitMQ ---
 builder.Services.AddMassTransit(x =>
