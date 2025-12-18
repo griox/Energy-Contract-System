@@ -24,24 +24,26 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
         try
         {
-            // 1. Đọc cấu hình (QUAN TRỌNG: Kiểm tra null)
+            // 1. Đọc cấu hình
             var senderName = _configuration["EmailSettings:SenderName"] ?? "Energy System";
-            // BẮT BUỘC: SenderEmail phải trùng với mail đăng nhập Brevo
+            
+            // 👇 VẪN GIỮ BIẾN NÀY (Để email gửi đi hiện là nh920211@gmail.com)
             var senderEmail = _configuration["EmailSettings:SenderEmail"]; 
             
-            // Key Brevo lấy từ Env
+            // Key Brevo (Password)
             var appPassword = _configuration["EmailSettings:AppPassword"]; 
             
-            // Cấu hình cứng Host và Port của Brevo (Khỏi lo Env sai)
+            // Host và Port
             var smtpHost = "smtp-relay.brevo.com"; 
-            var smtpPort = 2525; // Port thần thánh
-
-            // Link Frontend
+            var smtpPort = 2525;
             var loginLink = "https://energy-contract-system-six.vercel.app"; 
 
-            // Debug log (Che mật khẩu)
-            _logger.LogInformation($"[CONFIG CHECK] Sender: {senderEmail}");
-            _logger.LogInformation($"[CONFIG CHECK] Key Length: {appPassword?.Length ?? 0}");
+            // 👇 THÊM BIẾN NÀY ĐỂ ĐĂNG NHẬP (Lấy từ ảnh cấu hình Brevo của bạn)
+            // Đây là chìa khóa để Brevo không chặn bạn nữa
+            var smtpLoginUser = "9e44aa001@smtp-brevo.com";
+
+            _logger.LogInformation($"[CONFIG CHECK] Sender (From): {senderEmail}");
+            _logger.LogInformation($"[CONFIG CHECK] Login User: {smtpLoginUser}");
 
             if (string.IsNullOrEmpty(appPassword) || string.IsNullOrEmpty(senderEmail))
             {
@@ -50,6 +52,7 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
             // 2. Tạo nội dung Email
             var message = new MimeMessage();
+            // 👇 Ở ĐÂY VẪN DÙNG senderEmail NHƯ BẠN MUỐN (Để khách thấy mail uy tín)
             message.From.Add(new MailboxAddress(senderName, senderEmail));
             message.To.Add(new MailboxAddress(msg.FullName, msg.Email));
             message.Subject = "Chào mừng bạn đến với Energy System! 🎉";
@@ -98,14 +101,16 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
             _logger.LogInformation($"[CONNECT] {smtpHost}:{smtpPort}");
             await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.Auto);
 
-            _logger.LogInformation("[AUTH] Đang đăng nhập...");
-            // Dùng chính email sender để login
-            await client.AuthenticateAsync(senderEmail, appPassword);
+            _logger.LogInformation($"[AUTH] Đang đăng nhập bằng ID: {smtpLoginUser}...");
+            
+            // 🔴 SỬA QUAN TRỌNG NHẤT Ở ĐÂY:
+            // Dùng ID riêng (9e44aa...) để đăng nhập, KHÔNG dùng senderEmail
+            await client.AuthenticateAsync(smtpLoginUser, appPassword);
 
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation($"✅ [SUCCESS] Đã gửi mail thành công tới {msg.Email}");
+            _logger.LogInformation($"✅ [SUCCESS] Đã gửi mail thành công từ {senderEmail} tới {msg.Email}");
         }
         catch (Exception ex)
         {
