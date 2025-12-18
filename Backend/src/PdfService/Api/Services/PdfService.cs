@@ -1,5 +1,9 @@
 using Api.Services.Interfaces;
 using Api.VMs;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Api.Services;
 
@@ -8,20 +12,20 @@ public class PdfService : IPdfService
     private readonly IPdfGenerator _pdfGenerator;
     private readonly IStorageService _storageService;
     private readonly ITemplateService _templateService;
-    private readonly ICustomerApiClient _customerApiClient; // [NEW] Inject Client
+    private readonly ICustomerApiClient _customerApiClient;
     private readonly ILogger<PdfService> _logger;
 
     public PdfService(
         IPdfGenerator pdfGenerator,
         IStorageService storageService,
         ITemplateService templateService,
-        ICustomerApiClient customerApiClient, // [NEW]
+        ICustomerApiClient customerApiClient,
         ILogger<PdfService> logger)
     {
         _pdfGenerator = pdfGenerator;
         _storageService = storageService;
         _templateService = templateService;
-        _customerApiClient = customerApiClient; // [NEW]
+        _customerApiClient = customerApiClient;
         _logger = logger;
     }
 
@@ -29,31 +33,31 @@ public class PdfService : IPdfService
     {
         try
         {
-            _logger.LogInformation($"Generating PDF for contract: {request.ContractNumber}");
+            _logger.LogInformation($"[START] Generating PDF for contract: {request.ContractNumber}");
 
-            // [NEW LOGIC] 0. Check and delete old file if exists
+            // 0. Xóa file cũ (nếu có)
             if (!string.IsNullOrEmpty(request.CurrentPdfUrl))
             {
-                _logger.LogInformation($"Found existing PDF for contract {request.ContractNumber}. Attempting to delete old file...");
-                var deleteResult = await _storageService.DeleteFileAsync(request.CurrentPdfUrl);
-                if (deleteResult)
+                try 
                 {
-                    _logger.LogInformation($"Old PDF deleted successfully: {request.CurrentPdfUrl}");
+                    // Đặt trong try-catch con để nếu xóa lỗi cũng không chặn việc tạo file mới
+                    _logger.LogInformation($"Attempting to delete old PDF: {request.CurrentPdfUrl}");
+                    await _storageService.DeleteFileAsync(request.CurrentPdfUrl);
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logger.LogWarning($"Failed to delete old PDF or file not found: {request.CurrentPdfUrl}");
+                    _logger.LogWarning($"Failed to delete old PDF (ignoring): {ex.Message}");
                 }
             }
 
-            // 1. Get template based on request or default
+            // 1. Lấy Template
             string templateName = !string.IsNullOrEmpty(request.TemplateName)
                 ? request.TemplateName
-                : "ContractTemplate"; // Default template
+                : "ContractTemplate";
 
             var htmlTemplate = await _templateService.GetTemplateByNameAsync(templateName);
 
-            // 2. Prepare data (Giữ nguyên)
+            // 2. Chuẩn bị dữ liệu map
             var templateData = new Dictionary<string, string>
             {
                 { "ContractNumber", request.ContractNumber },
@@ -72,22 +76,29 @@ public class PdfService : IPdfService
                 { "GeneratedDate", DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm") }
             };
 
-            // 3. Render template
+            // 3. Render HTML
             var renderedHtml = _templateService.RenderTemplate(htmlTemplate, templateData);
 
-            // 4. Generate PDF
+            // 4. Generate PDF (Bước này hay bị Timeout nhất)
             var pdfBytes = await _pdfGenerator.GeneratePdfFromHtmlAsync(renderedHtml);
 
-            // 5. Upload to storage
+            // 5. Upload lên Storage
             var fileName = $"contract_{request.ContractNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
             var pdfUrl = await _storageService.UploadPdfAsync(pdfBytes, fileName);
 
-            _logger.LogInformation($"PDF generated successfully: {fileName}");
+            _logger.LogInformation($"PDF generated & uploaded: {fileName}");
 
-            // 6. [NEW] Update Contract PdfUrl in Customer Service
-            // Gọi bất đồng bộ và không cần chờ kết quả để trả về response nhanh hơn (Fire and Forget)
-            // Hoặc await nếu muốn đảm bảo update thành công mới trả về.
-            await _customerApiClient.UpdateContractPdfUrlAsync(request.ContractNumber, pdfUrl);
+            // 6. Cập nhật URL sang Customer Service
+            try 
+            {
+                _logger.LogInformation("Updating Contract PdfUrl in Customer Service...");
+                await _customerApiClient.UpdateContractPdfUrlAsync(request.ContractNumber, pdfUrl);
+            }
+            catch(Exception ex)
+            {
+                // Log lỗi nhưng vẫn trả về thành công cho người dùng vì file PDF đã tạo xong rồi
+                _logger.LogError(ex, "PDF created but failed to update Customer Service.");
+            }
 
             return new PdfGenerationResult
             {
@@ -98,11 +109,12 @@ public class PdfService : IPdfService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error generating PDF for contract: {request.ContractNumber}");
+            _logger.LogError(ex, $"[FAILED] Error generating PDF for contract: {request.ContractNumber}");
+            // Trả về Exception message để Frontend hiển thị toast
             return new PdfGenerationResult
             {
                 Success = false,
-                ErrorMessage = ex.Message
+                ErrorMessage = ex.InnerException?.Message ?? ex.Message
             };
         }
     }
@@ -113,19 +125,13 @@ public class PdfService : IPdfService
 
         try 
         {
-            // Logic đơn giản để lấy Key từ URL (bỏ phần domain)
-            // Ví dụ: https://bucket.s3.../contracts/file.pdf -> contracts/file.pdf
             Uri uri = new Uri(fileUrl);
             string key = uri.AbsolutePath.TrimStart('/');
-            
-            // Nếu URL có chứa tên bucket ở path đầu tiên (path-style url), cần cắt bỏ nó đi
-            // Tùy thuộc vào cấu hình S3 của bạn. Ở đây giả định key là phần path.
-            
             return await _storageService.DownloadFileAsync(key);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Failed to process download for URL: {fileUrl}");
+            _logger.LogError(ex, $"Failed to download file: {fileUrl}");
             return Array.Empty<byte>();
         }
     }

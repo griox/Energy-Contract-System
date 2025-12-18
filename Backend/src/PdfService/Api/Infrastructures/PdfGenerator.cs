@@ -3,6 +3,7 @@ using PuppeteerSharp;
 using PuppeteerSharp.Media;
 using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging; // Đảm bảo có namespace này
 
 namespace Api.Infrastructures;
 
@@ -21,12 +22,13 @@ public class PdfGenerator : IPdfGenerator
         {
             _logger.LogInformation("Starting PDF generation with PuppeteerSharp...");
 
-            // Lấy đường dẫn từ biến môi trường (đã set trong Dockerfile)
+            // Lấy đường dẫn từ biến môi trường
             var executablePath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
 
-            // Nếu không có biến môi trường (chạy local window), fallback về logic cũ (tải browser)
+            // Nếu chạy local (không có biến môi trường), tải browser về
             if (string.IsNullOrEmpty(executablePath))
             {
+                _logger.LogInformation("PUPPETEER_EXECUTABLE_PATH not found. Downloading browser...");
                 var browserFetcher = new BrowserFetcher();
                 await browserFetcher.DownloadAsync();
             }
@@ -34,23 +36,23 @@ public class PdfGenerator : IPdfGenerator
             var launchOptions = new LaunchOptions
             {
                 Headless = true,
-                // Quan trọng: Trỏ vào Chromium đã cài trong Docker
                 ExecutablePath = executablePath,
+                // 🔥 QUAN TRỌNG: Args tối ưu cho Docker/Render
                 Args = new[]
                 {
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
+                    "--disable-dev-shm-usage", // Tránh lỗi crash bộ nhớ trên Linux
                     "--disable-gpu",
-                    "--font-render-hinting=none" // Giúp render font đẹp hơn trên Linux
+                    "--font-render-hinting=none",
+                    "--disable-extensions",
+                    "--mute-audio"
                 }
             };
 
             using var browser = await Puppeteer.LaunchAsync(launchOptions);
             using var page = await browser.NewPageAsync();
 
-            // 4. Set nội dung HTML
-            // Thêm CSS cơ bản để đảm bảo hiển thị đẹp
             var styledHtml = $@"
                 <!DOCTYPE html>
                 <html>
@@ -70,22 +72,21 @@ public class PdfGenerator : IPdfGenerator
                 </body>
                 </html>";
 
+            // 🔥 KHẮC PHỤC LỖI TIMEOUT TẠI ĐÂY 🔥
             await page.SetContentAsync(styledHtml, new NavigationOptions
             {
+                // Tăng từ 30,000 (mặc định) lên 120,000 (2 phút)
+                Timeout = 120000, 
                 WaitUntil = new[] { WaitUntilNavigation.Networkidle0 }
             });
 
-            // 5. Xuất ra PDF
             var pdfBytes = await page.PdfDataAsync(new PdfOptions
             {
                 Format = PaperFormat.A4,
                 PrintBackground = true,
                 MarginOptions = new MarginOptions
                 {
-                    Top = "20mm",
-                    Bottom = "20mm",
-                    Left = "20mm",
-                    Right = "20mm"
+                    Top = "20mm", Bottom = "20mm", Left = "20mm", Right = "20mm"
                 }
             });
 
@@ -95,7 +96,7 @@ public class PdfGenerator : IPdfGenerator
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating PDF with PuppeteerSharp");
-            throw;
+            throw; // Ném lỗi ra ngoài để Service xử lý
         }
     }
 }
