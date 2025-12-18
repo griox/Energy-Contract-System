@@ -11,21 +11,27 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # --- BƯỚC 1: COPY FILE CSPROJ ---
+
+# 👇 MỚI THÊM: Copy file csproj của Shared.Logging trước
+# Dựa trên ảnh của bạn: Backend -> Shared.Logging -> Shared.Logging.csproj
+COPY ["Backend/Shared.Logging/Shared.Logging.csproj", "Backend/Shared.Logging/"]
+
+# Copy các file csproj của CustomerService
 COPY ["Backend/src/CustomerService/Api/Api.csproj", "Backend/src/CustomerService/Api/"]
 COPY ["Backend/src/CustomerService/Application/Application.csproj", "Backend/src/CustomerService/Application/"]
 COPY ["Backend/src/CustomerService/Domain/Domain.csproj", "Backend/src/CustomerService/Domain/"]
 COPY ["Backend/src/CustomerService/Infrastructure/Infrastructure.csproj", "Backend/src/CustomerService/Infrastructure/"]
 
-# Restore
+# Restore (Lúc này đã có đủ csproj của cả Service và Shared Library để restore)
 RUN dotnet restore "Backend/src/CustomerService/Api/Api.csproj"
 
-# --- BƯỚC 2: COPY SOURCE CODE (SỬA Ở ĐÂY) ---
-# ❌ ĐỪNG DÙNG: COPY . . (Nó sẽ copy cả ContractHistoryService gây lỗi)
-# ✅ HÃY DÙNG: Chỉ copy thư mục CustomerService
-COPY ["Backend/src/CustomerService/", "Backend/src/CustomerService/"]
+# --- BƯỚC 2: COPY SOURCE CODE ---
 
-# (Nếu bạn có dùng Shared folder không có csproj, hãy copy thêm dòng này)
-# COPY ["Backend/src/Shared/", "Backend/src/Shared/"]
+# 👇 MỚI THÊM: Copy toàn bộ code của thư viện Shared vào
+COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
+
+# Copy toàn bộ code của CustomerService
+COPY ["Backend/src/CustomerService/", "Backend/src/CustomerService/"]
 
 # --- BƯỚC 3: BUILD & PUBLISH ---
 WORKDIR "/src/Backend/src/CustomerService/Api"

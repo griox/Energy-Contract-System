@@ -21,7 +21,7 @@ WORKDIR /src
 
 # 👇 QUAN TRỌNG: Sửa đường dẫn COPY cho đúng cấu trúc thư mục
 COPY ["Backend/src/PdfService/Api/Api.csproj", "Backend/src/PdfService/Api/"]
-
+COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
 
 
 # Restore

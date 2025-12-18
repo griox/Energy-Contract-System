@@ -13,8 +13,7 @@ WORKDIR /src
 # 👇 SỬA Ở ĐÂY: Thêm '/Api/' vào đường dẫn
 COPY ["Backend/src/AuthService/Api/Api.csproj", "Backend/src/AuthService/Api/"]
 
-# Nếu có dùng Shared, hãy bỏ comment và sửa dòng dưới (kiểm tra xem Shared có nằm trong thư mục con nào không)
-# COPY ["Backend/src/Shared/Shared.csproj", "Backend/src/Shared/"]
+COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
 
 # 👇 SỬA Ở ĐÂY: Restore đúng đường dẫn file
 RUN dotnet restore "Backend/src/AuthService/Api/Api.csproj"

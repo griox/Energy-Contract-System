@@ -14,8 +14,7 @@ WORKDIR /src
 # Giả định thư mục là InvoiceService, nếu tên khác hãy sửa lại nhé
 COPY ["Backend/src/InvoiceService/Api/Api.csproj", "Backend/src/InvoiceService/Api/"]
 
-# Nếu InvoiceService có dùng thư viện Shared, hãy bỏ comment dòng dưới:
-# COPY ["Backend/src/Shared/Shared.csproj", "Backend/src/Shared/"]
+COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
 
 # Restore
 RUN dotnet restore "Backend/src/InvoiceService/Api/Api.csproj"

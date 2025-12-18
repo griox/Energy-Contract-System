@@ -13,8 +13,7 @@ WORKDIR /src
 # 👇 QUAN TRỌNG: Copy file csproj từ đường dẫn gốc
 COPY ["Backend/src/EmailService/Api/Api.csproj", "Backend/src/EmailService/Api/"]
 
-# Nếu có dùng Shared, bỏ comment dòng dưới:
-# COPY ["Backend/src/Shared/Shared.csproj", "Backend/src/Shared/"]
+COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
 
 # Restore
 RUN dotnet restore "Backend/src/EmailService/Api/Api.csproj"
