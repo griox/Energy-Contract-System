@@ -3,8 +3,11 @@
 # Chuyển quyền root
 USER root
 
+# 👇 QUAN TRỌNG: Cấp quyền thực thi cho file (Bạn đang thiếu dòng này)
+RUN chmod +x /seqsvr/Seq
+
 # Biến môi trường
 ENV ACCEPT_EULA="Y"
 
-# 👇 SỬA DÒNG NÀY: Bỏ chữ "/bin" đi
+# Chạy Seq
 ENTRYPOINT ["/seqsvr/Seq", "run"]
