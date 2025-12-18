@@ -4,7 +4,7 @@ using MailKit.Net.Smtp;
 using MimeKit;
 using MailKit.Security;
 
-namespace EmailService.Api.Consumers; // Đặt namespace chuẩn
+namespace Api.Consumers; // Đặt namespace chuẩn
 
 public class ContractCreatedConsumer : IConsumer<ContractCreatedEvent>
 {

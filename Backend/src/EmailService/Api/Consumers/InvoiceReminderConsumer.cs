@@ -1,11 +1,11 @@
-    using MassTransit;
+ using MassTransit;
 using Shared.Events;
 using MailKit.Net.Smtp;
 using MimeKit;
 using System.Globalization;
 using MailKit.Security;
 
-namespace EmailService.Api.Consumers; // Đặt namespace chuẩn đồng bộ với các file khác
+namespace Api.Consumers; // Đặt namespace chuẩn đồng bộ với các file khác
 
 public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
 {
