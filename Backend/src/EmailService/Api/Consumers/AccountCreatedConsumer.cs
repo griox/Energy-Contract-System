@@ -40,7 +40,7 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 
             // 👇 THÊM BIẾN NÀY ĐỂ ĐĂNG NHẬP (Lấy từ ảnh cấu hình Brevo của bạn)
             // Đây là chìa khóa để Brevo không chặn bạn nữa
-            var smtpLoginUser = "9e44aa001@smtp-brevo.com";
+            var smtpLoginUser = "9e501d001@smtp-brevo.com";
 
             _logger.LogInformation($"[CONFIG CHECK] Sender (From): {senderEmail}");
             _logger.LogInformation($"[CONFIG CHECK] Login User: {smtpLoginUser}");

@@ -39,7 +39,7 @@ public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
             var smtpPort = 2525; // Port thần thánh
             
             // 👇 QUAN TRỌNG: ID đăng nhập riêng của Brevo (Lấy từ ảnh bạn gửi)
-            var smtpLoginUser = "9e44aa001@smtp-brevo.com";
+            var smtpLoginUser = "9e501d001@smtp-brevo.com";
 
             // 👇 SỬA LINK: Thay localhost bằng link Frontend thật
             var frontendUrl = "https://energy-contract-system-six.vercel.app";

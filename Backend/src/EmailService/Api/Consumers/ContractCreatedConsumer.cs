@@ -38,7 +38,7 @@ public class ContractCreatedConsumer : IConsumer<ContractCreatedEvent>
             var smtpPort = 2525; // Port 2525 ổn định nhất
             
             // 👇 QUAN TRỌNG: ID đăng nhập riêng của Brevo
-            var smtpLoginUser = "9e44aa001@smtp-brevo.com";
+            var smtpLoginUser = "9e501d001@smtp-brevo.com";
 
             // 👇 SỬA LINK: Đổi localhost thành link Production
             var frontendUrl = "https://energy-contract-system-six.vercel.app";
