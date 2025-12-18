@@ -43,7 +43,7 @@ public static class SerilogExtensions
             
             var seqUrl = Environment.GetEnvironmentVariable("SEQ_URL") // 👈 Render sẽ điền vào đây
                          ?? context.Configuration["Serilog:WriteTo:0:Args:serverUrl"] 
-                         ?? "http://localhost:5341";
+                         ?? "https://serilog.onrender.com";
 
             // Nếu tìm thấy URL hợp lệ thì mới cấu hình bắn log
             if (!string.IsNullOrEmpty(seqUrl))
