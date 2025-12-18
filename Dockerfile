@@ -7,10 +7,11 @@ USER root
 # 2. Chấp nhận điều khoản
 ENV ACCEPT_EULA=Y
 
-# 3. CHIẾN THUẬT QUAN TRỌNG:
-# Thay vì cố sửa quyền file gốc (bị Render chặn), ta copy nó ra thành file mới.
-# File mới này do chính Root tạo ra nên Render bắt buộc phải cấp quyền chạy.
+# 👇 3. THÊM DÒNG NÀY: Đặt mật khẩu Admin mặc định (Bạn tự đổi pass nhé)
+ENV SEQ_FIRSTRUN_ADMINPASSWORD="Password123!"
+
+# 4. CHIẾN THUẬT COPY FILE (Giữ nguyên cái này vì nó đang hoạt động tốt)
 RUN cp /seqsvr/Seq /seqsvr/Seq-custom && chmod +x /seqsvr/Seq-custom
 
-# 4. Chạy bằng file mới tạo
+# 5. Chạy bằng file mới
 ENTRYPOINT ["/seqsvr/Seq-custom", "run"]
