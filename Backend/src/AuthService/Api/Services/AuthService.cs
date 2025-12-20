@@ -95,20 +95,17 @@ public class AuthService : IAuthService
                 _logger.LogError($"Username {request.Username} is not found");
                 throw new Exception("User not found.");
             }
-
             // 2. Kiểm tra password
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 _logger.LogError($"Password is incorrect");
                 throw new Exception("Wrong password.");
             }
-
             // 3. Tạo access token (JWT)
             var accessToken = CreateAccessToken(user);
             
             // 4. Tạo refresh token (random 64 bytes)
             var refreshToken = GenerateRefreshToken();
-            
             // 5. Lưu refresh token vào DB
             var session = new Session
             {
@@ -116,10 +113,8 @@ public class AuthService : IAuthService
                 Token = refreshToken,
                 ExpiresAt = DateTime.UtcNow.AddDays(REFRESH_TOKEN_DAYS)
             };
-            
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
-
             return new LoginResult
             {
                 Success = true,
@@ -127,7 +122,7 @@ public class AuthService : IAuthService
                 RefreshToken = refreshToken
             };
         }
-        catch (Exception ex)
+        catch (Exception ex)    
         {
             _logger.LogError($"Error during login: {ex.Message}");
             return new LoginResult

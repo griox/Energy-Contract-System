@@ -1,8 +1,8 @@
 ﻿using FluentValidation;
 
-namespace Application.Features.ContractHistories.Commands.GetHistoryByContractId
+namespace Application.Features.ContractHistorys.Commands.GetHistoryByContractId
 {
-    public class GetHistoryByContractIdValidator : AbstractValidator<GetHistoryByContractId>
+    public class GetHistoryByContractIdValidator : AbstractValidator<ContractHistorys.Commands.GetHistoryByContractId.GetHistoryByContractId>
     {
         public GetHistoryByContractIdValidator()
         {

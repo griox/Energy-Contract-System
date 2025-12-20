@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Application.DTOs;
 using Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +9,8 @@ using MassTransit;
 using Microsoft.Extensions.Logging;
 using Shared.Events;
 
+
+
 namespace Infrastructure.Repositories;
 
 public class ContractRepository : IContractRepository
@@ -14,6 +18,12 @@ public class ContractRepository : IContractRepository
     private readonly EnergyDbContext _dbContext;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ContractRepository> _logger;
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        ReferenceHandler = ReferenceHandler.IgnoreCycles,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
     public ContractRepository(EnergyDbContext dbContext, IPublishEndpoint publishEndpoint, ILogger<ContractRepository> logger)
     {
         _dbContext = dbContext; 
@@ -54,9 +64,41 @@ public class ContractRepository : IContractRepository
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
-    public async Task UpdateContract(Contract contract)
+    public async Task UpdateContract(Contract incomingContract)
     {
-        _dbContext.Contracts.Update(contract);
+        var existingContract = await _dbContext.Contracts
+            .FirstOrDefaultAsync(c => c.Id == incomingContract.Id);
+
+        if (existingContract == null) return;
+
+        // 1. Snapshot CŨ để lưu lịch sử
+        var oldJson = JsonSerializer.Serialize(existingContract, JsonOptions);
+
+        // 2. Set giá trị MỚI (EF tự động map các trường trùng tên)
+        var entry = _dbContext.Entry(existingContract);
+        entry.CurrentValues.SetValues(incomingContract);
+
+        // 3. Nếu không có gì thay đổi thì return luôn, không update DB, không lưu history
+        if (entry.State == EntityState.Unchanged)
+        {
+            return; 
+        }
+
+        // 4. Snapshot MỚI
+        var newJson = JsonSerializer.Serialize(existingContract, JsonOptions);
+
+        // 5. Lưu History (Chỉ lưu khi Sửa, còn Xóa thì không lưu như bạn yêu cầu)
+        var history = new ContractHistory
+        {
+            ContractId = existingContract.Id,
+            OldValue = oldJson,
+            NewValue = newJson,
+            Timestamp = DateTime.UtcNow
+        };
+
+        await _dbContext.Set<ContractHistory>().AddAsync(history);
+        
+        // 6. Lưu thay đổi
         await _dbContext.SaveChangesAsync();
     }
 

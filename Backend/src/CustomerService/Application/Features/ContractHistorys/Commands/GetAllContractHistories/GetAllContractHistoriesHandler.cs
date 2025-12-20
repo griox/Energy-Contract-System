@@ -1,25 +1,26 @@
 ﻿using Application.DTOs;
 using Application.Interfaces;
 
-namespace Application.Features.ContractHistorys.Commands.GetHistoryByContractId
+namespace Application.Features.ContractHistorys.Commands.GetAllContractHistories
 {
-    public class GetHistoryByContractIdHandler
+    public class GetAllContractHistoriesHandler
     {
         private readonly IContractHistoryRepository _repository;
 
-        public GetHistoryByContractIdHandler(IContractHistoryRepository repository)
+        public GetAllContractHistoriesHandler(IContractHistoryRepository repository)
         {
             _repository = repository;
         }
 
-        public async Task<PagedResult<ContractHistoryDto>> Handle(ContractHistorys.Commands.GetHistoryByContractId.GetHistoryByContractId request)
+        public async Task<PagedResult<ContractHistoryDto>> Handle(GetAllContractHistories request)
         {
-            var (list, totalCount) = await _repository.GetPagedByContractIdAsync(
-                request.ContractId,
+            // Gọi hàm GetAllPagedAsync từ Repository (hàm này bạn đã thêm ở bước trước)
+            var (list, totalCount) = await _repository.GetAllPagedAsync(
                 request.Search,
                 request.PageNumber,
                 request.PageSize);
 
+            // Map thủ công giống mẫu bạn gửi
             var items = list.Select(h => new ContractHistoryDto
             {
                 Id = h.Id,
@@ -29,6 +30,7 @@ namespace Application.Features.ContractHistorys.Commands.GetHistoryByContractId
                 ContractId = h.ContractId
             }).ToList();
 
+            // Return đúng kiểu mẫu
             return new PagedResult<ContractHistoryDto>
             {
                 Items = items,

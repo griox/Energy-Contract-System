@@ -9,6 +9,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Api.Common.Messaging.Contracts;
+using Application.Features.ContractHistorys.Commands.GetAllContractHistories;
+using Application.Features.ContractHistorys.Commands.GetHistoryByContractId;
 using Application.Features.Orders.Commands.GetMyOrder;
 using MassTransit;
 using Shared.Logging;
@@ -85,7 +87,9 @@ try
     builder.Services.AddScoped<GetMyOrdersHandler>();
 
     builder.Services.AddTransient<Application.Features.ContractHistories.Commands.CreateContractHistory.CreateContractHistoryHandler>();
-    builder.Services.AddTransient<Application.Features.ContractHistories.Commands.GetHistoryByContractId.GetHistoryByContractIdHandler>();
+    builder.Services.AddTransient<GetHistoryByContractIdHandler>();
+    builder.Services.AddTransient<GetAllContractHistoriesHandler>();
+    builder.Services.AddTransient<Application.Features.ContractHistories.Commands.DeleteContractHistory.DeleteContractHistoryHandler>();
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();

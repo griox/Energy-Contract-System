@@ -1,4 +1,4 @@
-﻿namespace Application.Features.ContractHistories.Commands.GetHistoryByContractId
+﻿namespace Application.Features.ContractHistorys.Commands.GetHistoryByContractId
 {
     public class GetHistoryByContractId
     {

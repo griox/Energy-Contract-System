@@ -56,5 +56,44 @@ namespace Infrastructure.Repositories
 
             return (items, totalCount);
         }
+        public async Task<(List<ContractHistory> Items, int TotalCount)> GetAllPagedAsync(string? search, int pageNumber, int pageSize)
+        {
+            // Query tất cả lịch sử
+            var query = _context.ContractHistories
+                // .Include(h => h.Contract) // Bật dòng này nếu muốn lấy cả thông tin Contract
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                search = search.Trim().ToLower();
+                // Tìm kiếm trong value cũ hoặc mới
+                query = query.Where(h =>
+                    h.OldValue.ToLower().Contains(search) ||
+                    h.NewValue.ToLower().Contains(search));
+            }
+
+            // Sắp xếp mới nhất lên đầu
+            query = query.OrderByDescending(h => h.Timestamp);
+
+            var totalCount = await query.CountAsync();
+            
+            var items = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var history = await _context.ContractHistories.FindAsync(id);
+            if (history == null) return false;
+
+            _context.ContractHistories.Remove(history);
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }
