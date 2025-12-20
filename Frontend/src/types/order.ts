@@ -49,6 +49,7 @@ export interface OrderQueryParams {
     orderType?: OrderType;
     sortBy?: string;
     sortDesc?: boolean;
+    contractId?: number;
 }
 
 export interface PagedResult<T> {

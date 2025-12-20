@@ -10,8 +10,11 @@ namespace Application.Interfaces
         Task<Order?> GetByIdAsync(int id);
         Task UpdateAsync(Order order);
         Task DeleteAsync(Order order);
+
+        // 👇 Đã thêm tham số contractId
         Task<(List<Order> Items, int TotalCount)> GetPagedAsync(
             string? search,
+            int? contractId, // <--- THÊM VÀO ĐÂY
             int? status,
             int? orderType,
             int pageNumber,

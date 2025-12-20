@@ -9,6 +9,7 @@ import {
   Paper,
   Container,
   useTheme,
+  CircularProgress,
 } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import { alpha } from "@mui/material/styles";
@@ -37,6 +38,7 @@ import { useContract } from "@/hooks/useContracts";
 import { useGeneratePdf } from "@/hooks/usePdf";
 import { useReseller } from "@/hooks/useResellers";
 import { useAddress } from "@/hooks/useAddresses";
+import { useOrders } from "@/hooks/useOrders"; // [1] Import useOrders
 
 import GeneratePdfDialog from "./components/GeneratePdfDialog";
 import ViewPdfDialog from "./components/ViewPdfDialog";
@@ -54,6 +56,7 @@ export default function ContractDetail() {
   const [genPdfOpen, setGenPdfOpen] = useState(false);
   const [viewPdfOpen, setViewPdfOpen] = useState(false);
 
+  // [2] Fetch Contract Data
   const {
     data: contract,
     isLoading: isLoadingContract,
@@ -62,6 +65,19 @@ export default function ContractDetail() {
 
   const { data: addressData, isLoading: isLoadingAddress } = useAddress(contract?.addressId ?? 0);
   const { data: reseller, isLoading: isLoadingReseller } = useReseller(contract?.resellerId ?? 0);
+
+  // [3] Fetch Orders để tính tổng tiền
+  const { data: ordersData, isLoading: isLoadingOrders } = useOrders({
+    contractId: contractId, // Lọc theo contractId hiện tại
+    pageNumber: 1,
+    pageSize: 9999, // Lấy tất cả để tính tổng chính xác
+  });
+
+  // [4] Tính tổng tiền (topupFee)
+  const totalValue = useMemo(() => {
+    if (!ordersData?.items) return 0;
+    return ordersData.items.reduce((sum: number, order: any) => sum + (order.topupFee || 0), 0);
+  }, [ordersData]);
 
   const generatePdfMutation = useGeneratePdf();
 
@@ -93,7 +109,7 @@ export default function ContractDetail() {
       endDate: c.endDate,
       bankAccountNumber: c.bankAccountNumber || "",
       addressLine: addressData?.houseNumber || "",
-      totalAmount: 0,
+      totalAmount: totalValue, // [5] Có thể truyền tổng tiền vào đây để in lên PDF nếu cần
       currency: "VND",
       templateName,
       currentPdfUrl: c.pdfLink,
@@ -123,7 +139,7 @@ export default function ContractDetail() {
   if (isLoadingContract) {
     return (
       <Box p={4} display="flex" justifyContent="center">
-        <Typography>{t("contractDetail.loadingContractDetails")}</Typography>
+        <CircularProgress />
       </Box>
     );
   }
@@ -141,7 +157,7 @@ export default function ContractDetail() {
 
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh", pb: 4 }}>
-      {/* HEADER */}
+      {/* ... (Phần Header giữ nguyên) ... */}
       <Box sx={{ bgcolor: "background.paper", borderBottom: 1, borderColor: "divider", px: 4, py: 2 }}>
         <Container maxWidth="lg">
           <Stack direction="row" alignItems="center" spacing={2}>
@@ -247,7 +263,7 @@ export default function ContractDetail() {
       {/* MAIN */}
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <Grid container spacing={3}>
-          {/* LEFT */}
+          {/* LEFT: Customer Info (Giữ nguyên) */}
           <Grid size={{ xs: 12, md: 8 }}>
             <Paper
               elevation={0}
@@ -259,13 +275,9 @@ export default function ContractDetail() {
                 bgcolor: "background.paper",
               }}
             >
+              {/* ... (Nội dung Customer Info giữ nguyên) ... */}
               <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
-                <Avatar
-                  sx={{
-                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.12),
-                    color: "primary.main",
-                  }}
-                >
+                <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.12), color: "primary.main" }}>
                   <FiUser />
                 </Avatar>
                 <Typography variant="h6" fontWeight={700} color="text.primary">
@@ -286,27 +298,18 @@ export default function ContractDetail() {
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem icon={<FiPhone />} label={t("contractDetail.phoneNumber")} value={contract.phone} />
                 </Grid>
-
-                <Grid size={{ xs: 12 }}>
-                  <Divider sx={{ my: 1 }} />
-                </Grid>
-
+                <Grid size={{ xs: 12 }}><Divider sx={{ my: 1 }} /></Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <InfoItem icon={<FiCreditCard />} label={t("contractDetail.bankAccount")} value={contract.bankAccountNumber || t("contractDetail.na")} />
                 </Grid>
-
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <InfoItem
-                    icon={<FiBriefcase />}
-                    label={t("contractDetail.taxIdAddress")}
-                    value={isLoadingAddress ? t("contractDetail.loading") : addressData?.houseNumber || t("contractDetail.na")}
-                  />
+                  <InfoItem icon={<FiBriefcase />} label={t("contractDetail.taxIdAddress")} value={isLoadingAddress ? t("contractDetail.loading") : addressData?.houseNumber || t("contractDetail.na")} />
                 </Grid>
               </Grid>
             </Paper>
           </Grid>
 
-          {/* RIGHT */}
+          {/* RIGHT: Contract Terms & Financials */}
           <Grid size={{ xs: 12, md: 4 }}>
             <Paper
               elevation={0}
@@ -333,22 +336,16 @@ export default function ContractDetail() {
               </Stack>
 
               <Stack spacing={3}>
+                {/* Validity Period (Giữ nguyên) */}
                 <Box>
                   <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase" }}>
                     {t("contractDetail.validityPeriod")}
                   </Typography>
 
                   <Stack direction="row" alignItems="center" spacing={1} mt={1}>
-                    <Box
-                      sx={{
-                        p: 1,
-                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.06 : 0.05),
-                        borderRadius: 1,
-                      }}
-                    >
+                    <Box sx={{ p: 1, bgcolor: alpha(theme.palette.text.primary, 0.05), borderRadius: 1 }}>
                       <FiCalendar size={18} />
                     </Box>
-
                     <Box>
                       <Typography variant="body2" fontWeight={700} color="text.primary">
                         {contract.startDate ? new Date(contract.startDate).toLocaleDateString() : t("contractDetail.na")}
@@ -357,9 +354,7 @@ export default function ContractDetail() {
                         {t("contractDetail.startDate")}
                       </Typography>
                     </Box>
-
                     <Typography color="text.secondary">-</Typography>
-
                     <Box>
                       <Typography variant="body2" fontWeight={700} color="text.primary">
                         {contract.endDate ? new Date(contract.endDate).toLocaleDateString() : t("contractDetail.na")}
@@ -373,6 +368,7 @@ export default function ContractDetail() {
 
                 <Divider />
 
+                {/* Financials (Đã cập nhật logic hiển thị) */}
                 <Box>
                   <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase" }}>
                     {t("contractDetail.financials")}
@@ -381,16 +377,25 @@ export default function ContractDetail() {
                   <Stack direction="row" justifyContent="space-between" mt={1}>
                     <Typography color="text.secondary">{t("contractDetail.currency")}</Typography>
                     <Typography fontWeight={700} color="text.primary">
-                      VND
+                      EUR
                     </Typography>
                   </Stack>
 
-                  <Stack direction="row" justifyContent="space-between" mt={1}>
+                  <Stack direction="row" justifyContent="space-between" mt={1} alignItems="center">
                     <Typography color="text.secondary">{t("contractDetail.totalValue")}</Typography>
-                    <Typography fontWeight={800} color="primary.main">
-                      ---
-                    </Typography>
+                    
+                    {/* [6] Hiển thị giá trị tính toán */}
+                    {isLoadingOrders ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <Typography fontWeight={800} color="primary.main" fontSize={18}>
+                        {totalValue.toLocaleString()} €
+                      </Typography>
+                    )}
                   </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
+                    ({t("Total fees from")} {ordersData?.totalCount || 0} {t("orders")})
+                  </Typography>
                 </Box>
               </Stack>
             </Paper>

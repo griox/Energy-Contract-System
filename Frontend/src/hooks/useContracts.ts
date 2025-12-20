@@ -54,7 +54,6 @@ export const useUpdateContract = () => {
             contractService.update(id, data),
 
         onSuccess: (_, variables) => {
-            toast.success("Cập nhật hợp đồng thành công!");
 
             // 1. Làm mới danh sách để thấy thay đổi
             queryClient.invalidateQueries({ queryKey: ['contracts'] });

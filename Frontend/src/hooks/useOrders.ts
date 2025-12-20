@@ -99,6 +99,10 @@ export const useOrders = (params: OrderQueryParams) => {
                     // Có thể thêm filter theo ContractNumber nếu muốn
                 );
             }
+            if (params.contractId) {
+                // Đảm bảo so sánh đúng kiểu số
+                myOrders = myOrders.filter(o => o.contractId === Number(params.contractId));
+            }
 
             // b. Lọc theo Status
             if (params.status !== undefined && params.status !== null) {

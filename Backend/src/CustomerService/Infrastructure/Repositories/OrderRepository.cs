@@ -46,6 +46,7 @@ namespace Infrastructure.Repositories
         }
         public async Task<(List<Order> Items, int TotalCount)> GetPagedAsync(
             string? search,
+            int? contractId, // <--- 1. THÊM THAM SỐ NÀY
             int? status,
             int? orderType,
             int pageNumber,
@@ -55,10 +56,17 @@ namespace Infrastructure.Repositories
         {
             var query = _context.Orders.AsNoTracking().AsQueryable();
 
+            // Lọc theo từ khóa
             if (!string.IsNullOrWhiteSpace(search))
             {
                 search = search.Trim().ToLower();
                 query = query.Where(o => o.OrderNumber.ToLower().Contains(search));
+            }
+
+            // 2. THÊM LOGIC LỌC THEO CONTRACT ID
+            if (contractId.HasValue)
+            {
+                query = query.Where(o => o.ContractId == contractId.Value);
             }
 
             if (status.HasValue)
@@ -67,12 +75,15 @@ namespace Infrastructure.Repositories
             if (orderType.HasValue)
                 query = query.Where(o => o.OrderType == orderType.Value);
 
+            // Sắp xếp
             query = (sortBy?.ToLower(), sortDesc) switch
             {
                 ("ordernumber", false) => query.OrderBy(o => o.OrderNumber),
                 ("ordernumber", true)  => query.OrderByDescending(o => o.OrderNumber),
                 ("startdate", false)   => query.OrderBy(o => o.StartDate),
                 ("startdate", true)    => query.OrderByDescending(o => o.StartDate),
+                ("topupfee", false)    => query.OrderBy(o => o.TopupFee), // Thêm sort fee nếu cần
+                ("topupfee", true)     => query.OrderByDescending(o => o.TopupFee),
                 _                      => sortDesc ? query.OrderByDescending(o => o.Id) : query.OrderBy(o => o.Id),
             };
 

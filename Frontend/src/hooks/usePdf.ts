@@ -1,3 +1,4 @@
+// Thêm import useQueryClient
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContractPdfApi, TemplateApi, } from "@/services/pdfService/pdfService";
 import toast from "react-hot-toast";
@@ -6,17 +7,23 @@ import type { CreateTemplateParams, UpdateTemplateParams } from "@/types/pdf";
 // ==================== PDF GENERATION HOOKS ====================
 
 export function useGeneratePdf() {
+    // 1. Khởi tạo queryClient
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: ContractPdfApi.generate,
 
         onSuccess: (data: any) => {
-            toast.success("PDF generated successfully!");
+           
+            queryClient.invalidateQueries({ queryKey: ["contracts"] });
 
-            // 🔥 MỞ PDF
+            // Mở PDF (Tùy chọn, cẩn thận kẻo trình duyệt chặn popup)
             if (data?.pdfUrl) {
-                window.open(data.pdfUrl, "_blank", "noopener,noreferrer");
-            } else {
-                toast.error("PDF URL not found!");
+                // Có thể bọc trong try-catch hoặc kiểm tra trước
+                const newWindow = window.open(data.pdfUrl, "_blank", "noopener,noreferrer");
+                if (!newWindow) {
+                    toast("Pop-up blocked! Please allow pop-ups to view PDF.", { icon: "⚠️" });
+                }
             }
         },
 
@@ -26,6 +33,7 @@ export function useGeneratePdf() {
         }
     });
 }
+
 
 export function usePdfHealth() {
     return useQuery({
@@ -88,4 +96,3 @@ export function useDeleteTemplate() {
         onError: () => toast.error("Failed to delete template."),
     });
 }
-

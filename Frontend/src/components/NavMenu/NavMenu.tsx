@@ -39,7 +39,7 @@ export default function NavMenu() {
 
   const { t, i18n } = useTranslation();
   const { mode, toggleColorMode } = useContext(ColorModeContext);
-  const lang = (i18n.language || "vi") as "vi" | "en";
+  const lang = (i18n.language || "en") as "vi" | "en";
 
   const [open, setOpen] = useState(false); // MOBILE MENU
 
