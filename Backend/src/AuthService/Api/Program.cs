@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Shared.Logging;
-
+using System.Net;
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
@@ -93,6 +93,12 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader()
                 .AllowCredentials());
 });
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.CheckConsentNeeded = context => false;
+    options.MinimumSameSitePolicy = SameSiteMode.None;
+    options.Secure = CookieSecurePolicy.Always; // Bắt buộc HTTPS
+});
 
 
 builder.Services.AddMassTransit(x =>
@@ -125,6 +131,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseCors("AllowFrontend");    
+app.UseCookiePolicy();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
