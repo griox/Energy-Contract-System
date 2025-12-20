@@ -3,6 +3,7 @@ using Application.Interfaces;
 
 namespace Application.Features.Orders.Commands.GetAllOrders
 {
+    // 👇 Bỏ kế thừa IRequestHandler
     public class GetAllOrdersHandler
     {
         private readonly IOrderRepository _orderRepository;
@@ -12,10 +13,13 @@ namespace Application.Features.Orders.Commands.GetAllOrders
             _orderRepository = orderRepository;
         }
 
+        // 👇 Method Handle bình thường, nhận class GetAllOrders
         public async Task<PagedResult<OrderDto>> Handle(GetAllOrders request)
         {
+            // Gọi Repository (đủ 8 tham số)
             var (orders, totalCount) = await _orderRepository.GetPagedAsync(
                 request.Search,
+                request.ContractId, // <--- Nhớ truyền cái này
                 request.Status,
                 request.OrderType,
                 request.PageNumber,
@@ -23,6 +27,7 @@ namespace Application.Features.Orders.Commands.GetAllOrders
                 request.SortBy,
                 request.SortDesc);
 
+            // Map Entity -> DTO
             var items = orders.Select(o => new OrderDto
             {
                 Id = o.Id,
@@ -35,12 +40,14 @@ namespace Application.Features.Orders.Commands.GetAllOrders
                 ContractId = o.ContractId
             }).ToList();
 
+            // Trả về kết quả
             return new PagedResult<OrderDto>
             {
                 Items = items,
                 PageNumber = request.PageNumber,
                 PageSize = request.PageSize,
                 TotalCount = totalCount
+                // ❌ Đã xóa dòng TotalPages vì bạn bảo class PagedResult không có
             };
         }
     }
