@@ -1,8 +1,8 @@
 ﻿using Application.DTOs;
 using Application.Features.ContractHistories.Commands.CreateContractHistory;
-using Application.Features.ContractHistorys.Commands.GetHistoryByContractId;
-using Application.Features.ContractHistorys.Commands.GetAllContractHistories;
+using Application.Features.ContractHistories.Commands.GetAllContractHistories;
 using Application.Features.ContractHistories.Commands.DeleteContractHistory;
+using Application.Features.ContractHistorys.Commands.GetHistoryByContractId;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers

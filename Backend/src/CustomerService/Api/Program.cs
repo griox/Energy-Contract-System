@@ -9,7 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Api.Common.Messaging.Contracts;
-using Application.Features.ContractHistorys.Commands.GetAllContractHistories;
+using Application.Features.ContractHistories.Commands.GetAllContractHistories;
 using Application.Features.ContractHistorys.Commands.GetHistoryByContractId;
 using Application.Features.Orders.Commands.GetMyOrder;
 using MassTransit;

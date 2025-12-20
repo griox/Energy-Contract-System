@@ -1,8 +1,6 @@
-﻿
+﻿using Application.DTOs; // Namespace chứa PagedResult
 
-// Namespace chứa PagedResult
-
-namespace Application.Features.ContractHistorys.Commands.GetAllContractHistories
+namespace Application.Features.ContractHistories.Commands.GetAllContractHistories
 {
     public class GetAllContractHistories
     {

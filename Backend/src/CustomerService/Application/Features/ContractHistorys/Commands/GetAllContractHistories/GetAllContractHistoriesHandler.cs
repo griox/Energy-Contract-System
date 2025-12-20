@@ -1,7 +1,7 @@
-﻿using Application.DTOs;
-using Application.Interfaces;
+﻿using Application.Interfaces;
+using Application.DTOs;
 
-namespace Application.Features.ContractHistorys.Commands.GetAllContractHistories
+namespace Application.Features.ContractHistories.Commands.GetAllContractHistories
 {
     public class GetAllContractHistoriesHandler
     {
