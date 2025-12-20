@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-    Box, Button, TextField, MenuItem, Stack, Typography, Paper, Grid, InputAdornment, 
+    Box, Button, TextField, MenuItem, Stack, Typography, Paper, Grid, InputAdornment,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import NavMenu from "@/components/NavMenu/NavMenu";
@@ -18,7 +18,7 @@ export default function OrderEdit() {
 
     const { data: order, isLoading } = useOrder(orderId);
     const updateMutation = useUpdateOrder();
-    
+
     // Lấy danh sách Contract
     const { data: contractData } = useContracts({ pageNumber: 1, pageSize: 100 });
     const contracts = contractData?.items || [];
@@ -81,7 +81,7 @@ export default function OrderEdit() {
         <Box sx={{ display: "flex" }}>
             <NavMenu />
             <Box sx={{ ml: "240px", p: 4, width: "100%", background: "#F8FAFC", minHeight: "100vh" }}>
-                
+
                 <Button
                     startIcon={<ArrowBackIcon />}
                     onClick={() => navigate("/orders")}
@@ -199,8 +199,8 @@ export default function OrderEdit() {
                         <Button variant="outlined" onClick={() => navigate("/orders")} sx={{ borderRadius: "8px" }}>
                             Cancel
                         </Button>
-                        <Button 
-                            variant="contained" 
+                        <Button
+                            variant="contained"
                             onClick={handleSubmit}
                             disabled={updateMutation.isPending}
                             sx={{ borderRadius: "8px", px: 4 }}

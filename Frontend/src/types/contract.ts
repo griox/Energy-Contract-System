@@ -58,3 +58,10 @@ export interface PagedResult<T> {
 export interface UpdateContractParams extends CreateContractParams {
     id: number;
 }
+export interface ContractHistory {
+    id: number;          // int64
+    contractId: number;  // int32
+    oldValue: string;
+    newValue: string;
+    timestamp: string;   // ISO string
+}

@@ -19,6 +19,7 @@ import {
     Divider,
     useTheme,
     useMediaQuery,
+    IconButton,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -40,6 +41,7 @@ import AddressDelete from "./AddressDelete";
 import ResellerCreate from "./ResellerCreate";
 import ResellerEdit from "./ResellerEdit";
 import ResellerDelete from "./ResellerDelete";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function AddressResellerList() {
     const { t } = useTranslation();
@@ -66,24 +68,29 @@ export default function AddressResellerList() {
 
     // Address states
     const [addrSearch, setAddrSearch] = useState("");
+    const debouncedAddrSearch = useDebounce(addrSearch, 400);
     const [zipCode, setZipCode] = useState("");
     const [addrPage, setAddrPage] = useState(1);
 
     // Reseller states
     const [resSearch, setResSearch] = useState("");
+    const debouncedResSearch = useDebounce(resSearch, 400);
     const [resType, setResType] = useState("");
     const [resPage, setResPage] = useState(1);
 
     // modals
-    const [addrModal, setAddrModal] = useState<{ type: "create" | "edit" | "delete" | null; data?: any }>({
-        type: null,
-    });
-    const [resModal, setResModal] = useState<{ type: "create" | "edit" | "delete" | null; data?: any }>({
-        type: null,
-    });
+    const [addrModal, setAddrModal] = useState<{
+        type: "create" | "edit" | "delete" | null;
+        data?: any;
+    }>({ type: null });
+
+    const [resModal, setResModal] = useState<{
+        type: "create" | "edit" | "delete" | null;
+        data?: any;
+    }>({ type: null });
 
     const { data: addressData, isLoading: loadingAddr } = useAddresses({
-        search: addrSearch || undefined,
+        search: debouncedAddrSearch || undefined,
         zipCode: zipCode || undefined,
         pageNumber: addrPage,
         pageSize: PAGE_SIZE,
@@ -92,7 +99,7 @@ export default function AddressResellerList() {
     });
 
     const { data: resellerData, isLoading: loadingRes } = useResellers({
-        search: resSearch || undefined,
+        search: debouncedResSearch || undefined,
         type: resType || undefined,
         pageNumber: resPage,
         pageSize: PAGE_SIZE,
@@ -125,8 +132,8 @@ export default function AddressResellerList() {
     const resCanPrev = resPage > 1;
     const resCanNext = resPage < resTotalPages;
 
-    const handleOpenMenu = (e: any) => setAnchorEl(e.currentTarget);
-    const handleCloseMenu = () => setAnchorEl(null);
+    // const handleOpenMenu = (e: any) => setAnchorEl(e.currentTarget);
+    // const handleCloseMenu = () => setAnchorEl(null);
 
     return (
         <Box
@@ -150,7 +157,7 @@ export default function AddressResellerList() {
                     bgcolor: pageBg,
                 }}
             >
-                {/* HEADER */}
+                {/* HEADER PAGE */}
                 <Stack
                     direction={isMobile ? "column" : "row"}
                     justifyContent="space-between"
@@ -162,6 +169,7 @@ export default function AddressResellerList() {
                         {t("Address & Reseller Management")}
                     </Typography>
 
+                    {/* nút menu tổng
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -169,9 +177,9 @@ export default function AddressResellerList() {
                         fullWidth={isMobile}
                     >
                         {t("Add New")}
-                    </Button>
+                    </Button> */}
 
-                    <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
+                    {/* <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
                         <MenuItem
                             onClick={() => {
                                 handleCloseMenu();
@@ -188,10 +196,10 @@ export default function AddressResellerList() {
                         >
                             {t("Add Reseller")}
                         </MenuItem>
-                    </Menu>
+                    </Menu> */}
                 </Stack>
 
-                {/* ADDRESS SECTION */}
+                {/* ==================== ADDRESS SECTION ==================== */}
                 <Card
                     sx={{
                         p: isMobile ? 2 : 3,
@@ -201,9 +209,30 @@ export default function AddressResellerList() {
                         border: `1px solid ${borderColor}`,
                     }}
                 >
-                    <Typography variant="h6" mb={2} fontWeight={700}>
-                        {t("Address List")}
-                    </Typography>
+                    {/* ✅ HEADER ROW: title trái - button phải */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 2,
+                            mb: 2,
+                            flexWrap: "wrap",
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight={700} sx={{ m: 0 }}>
+                            {t("Address List")}
+                        </Typography>
+
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setAddrModal({ type: "create" })}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
+                        >
+                            {t("Add Address")}
+                        </Button>
+                    </Box>
 
                     {/* FILTER */}
                     <Stack
@@ -260,9 +289,15 @@ export default function AddressResellerList() {
                                 <Table size={isMobile ? "small" : "medium"}>
                                     <TableHead sx={{ bgcolor: headBg }}>
                                         <TableRow>
-                                            <TableCell sx={{ fontWeight: 700 }}>{t("Zip Code")}</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>{t("House")}</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>{t("Extension")}</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>
+                                                {t("Zip Code")}
+                                            </TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>
+                                                {t("House")}
+                                            </TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>
+                                                {t("Extension")}
+                                            </TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 700 }}>
                                                 {t("common.actions")}
                                             </TableCell>
@@ -278,27 +313,27 @@ export default function AddressResellerList() {
                                             </TableRow>
                                         ) : (
                                             addresses.map((a: any) => (
-                                                <TableRow key={a.id} hover sx={{ "&:hover": { bgcolor: rowHoverBg } }}>
+                                                <TableRow
+                                                    key={a.id}
+                                                    hover
+                                                    sx={{ "&:hover": { bgcolor: rowHoverBg } }}
+                                                >
                                                     <TableCell>{a.zipCode}</TableCell>
                                                     <TableCell>{a.houseNumber}</TableCell>
                                                     <TableCell>{a.extension}</TableCell>
                                                     <TableCell align="right">
-                                                        <Button
-                                                            size="small"
-                                                            startIcon={<EditIcon />}
-                                                            onClick={() => setAddrModal({ type: "edit", data: a })}
-                                                        >
-                                                            {t("Edit")}
-                                                        </Button>
-                                                        <Button
-                                                            size="small"
-                                                            color="error"
-                                                            startIcon={<DeleteIcon />}
-                                                            onClick={() => setAddrModal({ type: "delete", data: a })}
-                                                        >
-                                                            {t("Delete")}
-                                                        </Button>
+                                                        <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                                                            <IconButton size="small" color="primary" onClick={() => setAddrModal({ type: "edit", data: a })}>
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+
+                                                            <IconButton size="small" color="error" onClick={() => setAddrModal({ type: "delete", data: a })}>
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Stack>
                                                     </TableCell>
+
+
                                                 </TableRow>
                                             ))
                                         )}
@@ -319,10 +354,16 @@ export default function AddressResellerList() {
                                 }}
                             >
                                 <Typography variant="body2">
-                                    {t("Showing")} <b>{addrShownCount}</b> {t("of")} <b>{addrTotalCount}</b>
+                                    {t("Showing")} <b>{addrShownCount}</b> {t("of")}{" "}
+                                    <b>{addrTotalCount}</b>
                                 </Typography>
 
-                                <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                                <Stack
+                                    direction="row"
+                                    spacing={2}
+                                    alignItems="center"
+                                    justifyContent="space-between"
+                                >
                                     <Button
                                         variant="text"
                                         disabled={!addrCanPrev}
@@ -359,9 +400,30 @@ export default function AddressResellerList() {
                         border: `1px solid ${borderColor}`,
                     }}
                 >
-                    <Typography variant="h6" mb={2} fontWeight={700}>
-                        {t("Reseller List")}
-                    </Typography>
+                    {/* ✅ HEADER ROW: title trái - button phải */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 2,
+                            mb: 2,
+                            flexWrap: "wrap",
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight={700} sx={{ m: 0 }}>
+                            {t("Reseller List")}
+                        </Typography>
+
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => setResModal({ type: "create" })}
+                            sx={{ width: { xs: "100%", sm: "auto" } }}
+                        >
+                            {t("Add Reseller")}
+                        </Button>
+                    </Box>
 
                     <Stack
                         direction={isMobile ? "column" : "row"}
@@ -414,8 +476,12 @@ export default function AddressResellerList() {
                                 <Table size={isMobile ? "small" : "medium"}>
                                     <TableHead sx={{ bgcolor: headBg }}>
                                         <TableRow>
-                                            <TableCell sx={{ fontWeight: 700 }}>{t("Name")}</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>{t("Type")}</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>
+                                                {t("Name")}
+                                            </TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>
+                                                {t("Type")}
+                                            </TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 700 }}>
                                                 {t("common.actions")}
                                             </TableCell>
@@ -431,28 +497,29 @@ export default function AddressResellerList() {
                                             </TableRow>
                                         ) : (
                                             resellers.map((r: any) => (
-                                                <TableRow key={r.id} hover sx={{ "&:hover": { bgcolor: rowHoverBg } }}>
+                                                <TableRow
+                                                    key={r.id}
+                                                    hover
+                                                    sx={{ "&:hover": { bgcolor: rowHoverBg } }}
+                                                >
                                                     <TableCell>{r.name}</TableCell>
                                                     <TableCell>
                                                         <Chip label={r.type} size="small" color="info" />
                                                     </TableCell>
+
                                                     <TableCell align="right">
-                                                        <Button
-                                                            size="small"
-                                                            startIcon={<EditIcon />}
-                                                            onClick={() => setResModal({ type: "edit", data: r })}
-                                                        >
-                                                            {t("Edit")}
-                                                        </Button>
-                                                        <Button
-                                                            size="small"
-                                                            color="error"
-                                                            startIcon={<DeleteIcon />}
-                                                            onClick={() => setResModal({ type: "delete", data: r })}
-                                                        >
-                                                            {t("Delete")}
-                                                        </Button>
+                                                        <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                                                            <IconButton size="small" color="primary" onClick={() => setResModal({ type: "edit", data: r })}>
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+
+                                                            <IconButton size="small" color="error" onClick={() => setResModal({ type: "delete", data: r })}>
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Stack>
                                                     </TableCell>
+
+
                                                 </TableRow>
                                             ))
                                         )}
@@ -473,10 +540,16 @@ export default function AddressResellerList() {
                                 }}
                             >
                                 <Typography variant="body2">
-                                    {t("Showing")} <b>{resShownCount}</b> {t("of")} <b>{resTotalCount}</b>
+                                    {t("Showing")} <b>{resShownCount}</b> {t("of")}{" "}
+                                    <b>{resTotalCount}</b>
                                 </Typography>
 
-                                <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                                <Stack
+                                    direction="row"
+                                    spacing={2}
+                                    alignItems="center"
+                                    justifyContent="space-between"
+                                >
                                     <Button
                                         variant="text"
                                         disabled={!resCanPrev}
@@ -505,13 +578,41 @@ export default function AddressResellerList() {
                 </Card>
 
                 {/* MODALS */}
-                {addrModal.type === "create" && <AddressCreate open onClose={() => setAddrModal({ type: null })} />}
-                {addrModal.type === "edit" && <AddressEdit open onClose={() => setAddrModal({ type: null })} data={addrModal.data} />}
-                {addrModal.type === "delete" && <AddressDelete open onClose={() => setAddrModal({ type: null })} data={addrModal.data} />}
+                {addrModal.type === "create" && (
+                    <AddressCreate open onClose={() => setAddrModal({ type: null })} />
+                )}
+                {addrModal.type === "edit" && (
+                    <AddressEdit
+                        open
+                        onClose={() => setAddrModal({ type: null })}
+                        data={addrModal.data}
+                    />
+                )}
+                {addrModal.type === "delete" && (
+                    <AddressDelete
+                        open
+                        onClose={() => setAddrModal({ type: null })}
+                        data={addrModal.data}
+                    />
+                )}
 
-                {resModal.type === "create" && <ResellerCreate open onClose={() => setResModal({ type: null })} />}
-                {resModal.type === "edit" && <ResellerEdit open onClose={() => setResModal({ type: null })} data={resModal.data} />}
-                {resModal.type === "delete" && <ResellerDelete open onClose={() => setResModal({ type: null })} data={resModal.data} />}
+                {resModal.type === "create" && (
+                    <ResellerCreate open onClose={() => setResModal({ type: null })} />
+                )}
+                {resModal.type === "edit" && (
+                    <ResellerEdit
+                        open
+                        onClose={() => setResModal({ type: null })}
+                        data={resModal.data}
+                    />
+                )}
+                {resModal.type === "delete" && (
+                    <ResellerDelete
+                        open
+                        onClose={() => setResModal({ type: null })}
+                        data={resModal.data}
+                    />
+                )}
             </Box>
         </Box>
     );

@@ -114,8 +114,8 @@ export function LoginForm({
           <FieldDescription className="text-center mt-2">
             Don&apos;t have an account?{" "}
             {/* SỬA: Thay đổi thẻ a để gọi hàm callback thay vì chuyển trang */}
-            <span 
-              onClick={onSwitchToSignup} 
+            <span
+              onClick={onSwitchToSignup}
               className="underline underline-offset-4 cursor-pointer text-primary hover:text-primary/80"
             >
               Sign up

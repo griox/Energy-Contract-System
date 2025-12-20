@@ -8,31 +8,77 @@ import {
     MenuItem,
     CircularProgress,
 } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import { useCreateReseller } from "@/hooks/useResellers";
 
+type FormState = {
+    name: string;
+    type: string;
+};
+
+type FieldErrors = {
+    name?: string;
+    type?: string;
+};
+
 export default function ResellerCreate({ open, onClose, onSaved }: any) {
     const { t } = useTranslation();
     const createMutation = useCreateReseller();
 
-    const [form, setForm] = useState({
+    const [form, setForm] = useState<FormState>({
         name: "",
         type: "Broker",
     });
 
-    const handleChange = (e: any) => {
-        const { name, value } = e.target;
-        setForm((p) => ({ ...p, [name]: value }));
+    const [errors, setErrors] = useState<FieldErrors>({});
+
+    useEffect(() => {
+        if (open) setErrors({});
+    }, [open]);
+
+    const validate = (next: FormState) => {
+        const e: FieldErrors = {};
+
+        if (!String(next.name ?? "").trim()) e.name = "Name is required";
+        if (!String(next.type ?? "").trim()) e.type = "Type is required";
+
+        setErrors(e);
+        return Object.keys(e).length === 0;
     };
 
+    const handleChange = (e: any) => {
+        const { name, value } = e.target;
+
+        setForm((prev) => {
+            const next = { ...prev, [name]: value };
+
+            // validate realtime field quan trọng
+            if (name === "name" || name === "type") validate(next);
+
+            return next;
+        });
+    };
+
+    const canSubmit = useMemo(() => {
+        if (!form.name.trim()) return false;
+        if (!form.type) return false;
+        if (errors.name || errors.type) return false;
+        return true;
+    }, [form, errors]);
+
     const save = () => {
+        const ok = validate(form);
+        if (!ok) return;
+
+        // ✅ GIỮ NGUYÊN LOGIC: mutate(form)
         createMutation.mutate(form, {
             onSuccess: () => {
                 toast.success(t("resellerCreate.toast.created"));
                 setForm({ name: "", type: "Broker" });
+                setErrors({});
                 onSaved?.();
                 onClose();
             },
@@ -57,6 +103,8 @@ export default function ResellerCreate({ open, onClose, onSaved }: any) {
                     margin="dense"
                     value={form.name}
                     onChange={handleChange}
+                    error={!!errors.name}
+                    helperText={errors.name}
                 />
 
                 <TextField
@@ -67,6 +115,8 @@ export default function ResellerCreate({ open, onClose, onSaved }: any) {
                     select
                     value={form.type}
                     onChange={handleChange}
+                    error={!!errors.type}
+                    helperText={errors.type}
                 >
                     <MenuItem value="Broker">{t("Broker")}</MenuItem>
                     <MenuItem value="Agency">{t("Agency")}</MenuItem>
@@ -79,10 +129,18 @@ export default function ResellerCreate({ open, onClose, onSaved }: any) {
                     {t("Cancel")}
                 </Button>
 
-                <Button variant="contained" onClick={save} disabled={isSubmitting}>
+                <Button
+                    variant="contained"
+                    onClick={save}
+                    disabled={isSubmitting || !canSubmit}
+                >
                     {isSubmitting ? (
                         <>
-                            <CircularProgress size={18} color="inherit" style={{ marginRight: 8 }} />
+                            <CircularProgress
+                                size={18}
+                                color="inherit"
+                                style={{ marginRight: 8 }}
+                            />
                             {t("Saving...")}
                         </>
                     ) : (

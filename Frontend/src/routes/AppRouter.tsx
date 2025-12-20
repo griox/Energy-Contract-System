@@ -10,8 +10,7 @@ import NotFoundPage from "@/pages/NotFoundPage";
 import ContractList from "@/pages/Contract/ContractList";
 import ContractDetail from "@/pages/Contract/ContractDetail";
 import ContractPDF from "@/pages/Contract/ContractPDF";
-import ContractCreate from "@/pages/Contract/ContractCreate";
-import ContractEdit from "@/pages/Contract/ContractEdit";
+
 
 
 /* ===================== ADDRESS - RESELLER MODULE ===================== */
@@ -28,6 +27,7 @@ import TemplateList from "@/pages/Template/TemplateList";
 import TemplateCreate from "@/pages/Template/TemplateCreate";
 import TemplateEdit from "@/pages/Template/TemplateEdit";
 import { Toaster } from "react-hot-toast";
+import ContractHistoryPage from "@/pages/Contract/ContractHistoryPage";
 
 
 export default function AppRoutes() {
@@ -43,9 +43,9 @@ export default function AppRoutes() {
 
                     {/* --- CONTRACTS --- */}
                     <Route path="/contracts/list" element={<ContractList />} />
-                    <Route path="/contracts/create" element={<ContractCreate />} />
+
                     <Route path="/contracts/:id/detail" element={<ContractDetail />} />
-                    <Route path="/contracts/:id/edit" element={<ContractEdit />} />
+
                     <Route path="/contracts/:id/pdf" element={<ContractPDF />} />
                     {/* --- ADDRESS & RESELLER --- */}
                     <Route path="/address-reseller/list" element={<AddressResellerList />} />
@@ -64,6 +64,10 @@ export default function AppRoutes() {
 
                 {/* ===================== 404 ===================== */}
                 <Route path="*" element={<NotFoundPage />} />
+                {/* ================================History======================== */}
+                <Route path="/history" element={<ContractHistoryPage />} />
+                <Route path="/contracts/:id/history" element={<ContractHistoryPage />} />
+
 
             </Routes>
             <Toaster position="top-right" reverseOrder={false} />

@@ -37,8 +37,6 @@ export default function TemplateList() {
 
     const isDark = theme.palette.mode === "dark";
 
-    // ✅ layout mobile phải khớp với NavMenu (NavMenu mobile = xs -> md)
-    const isLayoutMobile = useMediaQuery(theme.breakpoints.down("md"));
 
     // ✅ chỉ card khi màn rất nhỏ
     const isCardMobile = useMediaQuery(theme.breakpoints.down("sm"));

@@ -22,7 +22,7 @@ import {
     CircularProgress,
     FormHelperText,
     useTheme,
-    useMediaQuery,
+
 } from "@mui/material";
 
 import Grid from "@mui/material/Grid";
@@ -84,7 +84,6 @@ export default function TemplateCreate() {
     const isDark = theme.palette.mode === "dark";
 
     // ✅ layout mobile theo NavMenu (md trở xuống)
-    const isLayoutMobile = useMediaQuery(theme.breakpoints.down("md"));
 
     const pageBg = "background.default";
     const cardBg = "background.paper";

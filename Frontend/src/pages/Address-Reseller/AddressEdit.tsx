@@ -8,22 +8,34 @@ import {
     Stack,
     CircularProgress,
 } from "@mui/material";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import { useUpdateAddress } from "@/hooks/useAddresses";
 
+type FormState = {
+    zipCode: string;
+    houseNumber: string;
+    extension: string;
+};
+
+type FieldErrors = {
+    zipCode?: string;
+    houseNumber?: string;
+};
+
 export default function AddressEdit({ open, onClose, onSaved, data }: any) {
     const { t } = useTranslation();
-
     const updateMutation = useUpdateAddress();
 
-    const [form, setForm] = useState({
+    const [form, setForm] = useState<FormState>({
         zipCode: "",
         houseNumber: "",
         extension: "",
     });
+
+    const [errors, setErrors] = useState<FieldErrors>({});
 
     useEffect(() => {
         if (!data) return;
@@ -33,16 +45,52 @@ export default function AddressEdit({ open, onClose, onSaved, data }: any) {
             houseNumber: data.houseNumber || "",
             extension: data.extension || "",
         });
+
+        setErrors({});
     }, [data]);
+
+    useEffect(() => {
+        if (open) setErrors({});
+    }, [open]);
+
+    const validate = (next: FormState) => {
+        const e: FieldErrors = {};
+
+        if (!String(next.zipCode ?? "").trim()) e.zipCode = "Zip Code is required";
+        if (!String(next.houseNumber ?? "").trim()) e.houseNumber = "House number is required";
+
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
 
     const change = (e: any) => {
         const { name, value } = e.target;
-        setForm((p) => ({ ...p, [name]: value }));
+
+        setForm((prev) => {
+            const next = { ...prev, [name]: value };
+
+            if (name === "zipCode" || name === "houseNumber") {
+                validate(next);
+            }
+
+            return next;
+        });
     };
+
+    const canSubmit = useMemo(() => {
+        if (!form.zipCode.trim()) return false;
+        if (!form.houseNumber.trim()) return false;
+        if (errors.zipCode || errors.houseNumber) return false;
+        return true;
+    }, [form, errors]);
 
     const submit = () => {
         if (!data?.id) return;
 
+        const ok = validate(form);
+        if (!ok) return;
+
+        // ✅ GIỮ NGUYÊN LOGIC: mutate({ id, data: form })
         updateMutation.mutate(
             { id: data.id, data: form },
             {
@@ -72,13 +120,19 @@ export default function AddressEdit({ open, onClose, onSaved, data }: any) {
                         name="zipCode"
                         value={form.zipCode}
                         onChange={change}
+                        error={!!errors.zipCode}
+                        helperText={errors.zipCode}
                     />
+
                     <TextField
                         label={t("addressCreate.houseNumber")}
                         name="houseNumber"
                         value={form.houseNumber}
                         onChange={change}
+                        error={!!errors.houseNumber}
+                        helperText={errors.houseNumber}
                     />
+
                     <TextField
                         label={t("addressCreate.extension")}
                         name="extension"
@@ -93,15 +147,13 @@ export default function AddressEdit({ open, onClose, onSaved, data }: any) {
                     {t("Cancel")}
                 </Button>
 
-                <Button onClick={submit} variant="contained" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                        <>
-                            <CircularProgress size={18} color="inherit" style={{ marginRight: 8 }} />
-                            {t("Saving...")}
-                        </>
-                    ) : (
-                        t("Save")
-                    )}
+                <Button
+                    onClick={submit}
+                    variant="contained"
+                    disabled={isSubmitting || !canSubmit}
+                    startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : undefined}
+                >
+                    {isSubmitting ? t("Saving...") : t("Save")}
                 </Button>
             </DialogActions>
         </Dialog>

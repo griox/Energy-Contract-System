@@ -85,13 +85,24 @@ export default function Home() {
       if (c?.endDate && new Date(c.endDate) > now) activeCount++;
     });
 
+
+
+
     return {
       totalContracts: contractQuery.data?.totalCount ?? 0,
       active: activeCount,
-      expired: (contractQuery.data?.totalCount ?? 0) - activeCount,
-      totalOrders: orderQuery.data?.totalCount ?? 0,
+      expired: contracts.length - activeCount,
+
     };
   }, [contracts, contractQuery.data, orderQuery.data]);
+
+  const { data: ordersData, isLoading: ordersLoading } = useOrders({
+    pageNumber: 1,
+    pageSize: 1,
+    sortBy: "id",
+    sortDesc: true,
+  });
+  const totalOrders = ordersData?.totalCount;
 
   const recentContracts = useMemo(() => contracts.slice(0, 5), [contracts]);
 
@@ -288,7 +299,7 @@ export default function Home() {
               </Button>
             </Stack>
           </Paper>
-          
+
           {/* ================= STATS ================= */}
           <Typography variant="h6" fontWeight={900} sx={{ mb: 1.25 }}>
             📊 {t("Dashboard Overview")}
@@ -345,8 +356,7 @@ export default function Home() {
               <StatCard
                 icon={<EnergyIcon />}
                 title={t("Total Orders")}
-                value={isLoading ? "-" : stats.totalOrders}
-                iconColor="success"
+                value={(isLoading || ordersLoading) ? "-" : (totalOrders ?? "N/A")}
                 bottom={
                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.72rem", md: "0.875rem" } }}>
                     {t("Gas & Electricity combined")}

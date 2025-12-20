@@ -12,16 +12,22 @@
         "language": "Ngôn ngữ",
         "theme": "Giao diện",
         "search": "Tìm kiếm...",
-        "actions": "Thao tác",
         "apply": "Lọc",
         "clear": "Xóa",
         "all": "Tất cả",
         "to": "đến",
-        "cancel": "Hủy",
         "generatePdf": "Tạo PDF",
         "default": "Mặc định",
         "na": "N/A",
-        "close": "Đóng"
+        "close": "Đóng",
+        "pageSize": "Số dòng",
+        "load": "TẢI",
+        "loading": "Đang tải...",
+        "actions": "THAO TÁC",
+        "page": "Trang",
+        "note": "Ghi chú",
+        "cancel": "Hủy",
+        "delete": "Xóa"
     },
     "Home": "Trang chủ",
     "Contracts List": "Danh sách hợp đồng",
@@ -365,5 +371,56 @@
         "templatePreview": "Xem trước mẫu:",
         "noPreview": "Không có bản xem trước.",
         "generating": "Đang tạo..."
+    },
+    "history": {
+        "title": "Lịch sử hợp đồng",
+        "subtitle": "Xem lịch sử thay đổi theo ContractId",
+        "quick": "Vào nhanh: ",
+        "or": "hoặc",
+        "contractId": "Mã hợp đồng",
+        "sectionTitle": "Lịch sử thay đổi",
+        "currentId": "ContractId",
+        "emptyPrompt": "Nhập ContractId để xem lịch sử.",
+        "loadError": "Không tải được lịch sử:",
+        "noChanges": "Chưa có lịch sử thay đổi.",
+        "time": "Thời gian",
+        "old": "Giá trị cũ",
+        "new": "Giá trị mới",
+        "search": "Tìm kiếm",
+        "searchPlaceholder": "Tìm field/giá trị thay đổi...",
+        "contractPlaceholder": "Chọn hợp đồng...",
+        "totalRecords": "Tổng bản ghi",
+        "totalChanges": "Tổng thay đổi",
+        "pickContract": "Chọn hợp đồng để xem lịch sử.",
+        "noResults": "Không tìm thấy thay đổi nào.",
+        "summary": "TÓM TẮT THAY ĐỔI",
+        "changes": "thay đổi",
+        "detail": "Chi tiết thay đổi",
+        "delete": "Xóa record",
+        "deleteTitle": "Xóa Contract History?",
+        "deleteConfirm": "Bạn chắc chắn muốn xóa record này không?",
+        "deleteFailed": "Xóa thất bại:"
+    },
+    "auth": {
+        "signup": {
+            "success": "Đăng ký thành công!",
+            "failed": "Đăng ký thất bại.",
+            "usernameExists": "Username đã tồn tại",
+            "emailExists": "Email đã tồn tại"
+        }
+    },
+    "login": {
+        "success": "Đăng nhập thành công!",
+        "failed": "Đăng nhập thất bại."
+    },
+    "order": {
+        "toast": {
+            "created": "Tạo đơn hàng thành công!",
+            "createFailed": "Lỗi khi tạo đơn hàng.",
+            "updated": "Cập nhật đơn hàng thành công!",
+            "updateFailed": "Lỗi khi cập nhật đơn hàng.",
+            "deleted": "Đã xóa đơn hàng!",
+            "deleteFailed": "Lỗi khi xóa đơn hàng."
+        }
     }
 }

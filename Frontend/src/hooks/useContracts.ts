@@ -5,21 +5,43 @@ import { contractService } from "@/services/customerService/ContractService";
 import type { ContractDto, ContractQueryParams, CreateContractParams, PagedResult } from "@/types/contract";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getUserRole } from "@/lib/authUtils";
+import { ContractHistoryApi } from "@/services/customerService/HistoryService";
 
 // --- Hook Tạo Hợp Đồng ---
 export const useCreateContract = () => {
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: (data: CreateContractParams) => contractService.create(data),
-        onSuccess: () => {
 
-            queryClient.invalidateQueries({ queryKey: ['contracts'] });
+        onSuccess: (data, variables) => {
+            // refresh contracts trước
+            queryClient.invalidateQueries({ queryKey: ["contracts"] });
+
+            const contractId =
+                typeof data === "number"
+                    ? data
+                    : (data as any)?.id ?? (data as any)?.contractId;
+
+            if (typeof contractId === "number" && contractId > 0) {
+                // ✅ fire-and-forget: history fail cũng không ảnh hưởng create contract
+                ContractHistoryApi.create({
+                    contractId,
+                    oldValue: "",
+                    newValue: JSON.stringify({ action: "CREATE", contract: variables }),
+                })
+                    .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ["contract-history"] });
+                    })
+                    .catch((e) => console.error("Create history failed:", e));
+            } else {
+                console.warn("Cannot create history: missing contractId from create response", data);
+            }
         },
+
         onError: (error: any) => {
             console.error(error);
-            toast.error(error?.response?.data || "Lỗi khi tạo hợp đồng");
-        }
+        },
     });
 };
 

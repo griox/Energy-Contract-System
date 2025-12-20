@@ -29,7 +29,7 @@ export const useUpdateAddress = () => {
             addressService.update(id, data),
 
         onSuccess: (_, variables) => {
-            toast.success("Cập nhật địa chỉ thành công!");
+
 
             // 1. Làm mới danh sách tổng
             queryClient.invalidateQueries({ queryKey: ['addresses'] });

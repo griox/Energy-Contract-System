@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Box,
     Button,
@@ -43,13 +43,36 @@ import NavMenu from "@/components/NavMenu/NavMenu";
 import { useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder } from "@/hooks/useOrders";
 import { useContracts } from "@/hooks/useContracts";
 import { OrderType, OrderStatus } from "@/types/order";
+import { useDebounce } from "@/hooks/useDebounce";
 
 type SortKey = "createdAt" | "orderNumber" | "status" | "startDate" | "endDate" | "topupFee";
 type OrderAny = any;
 
+type FieldErrors = {
+    orderNumber?: string;
+    contractId?: string;
+    startDate?: string;
+    endDate?: string;
+    topupFee?: string;
+};
+
+type FormState = {
+    orderNumber: string;
+    orderType: OrderType;
+    status: OrderStatus;
+    startDate: string; // yyyy-mm-dd
+    endDate: string; // yyyy-mm-dd
+    topupFee: number | string;
+    contractId: string; // select string
+};
+
 function toDateInputValue(iso?: string) {
     if (!iso) return "";
     return String(iso).split("T")[0] ?? "";
+}
+
+function parseLocalDate(dateStr: string) {
+    return new Date(`${dateStr}T00:00:00`);
 }
 
 export default function OrderList() {
@@ -62,8 +85,10 @@ export default function OrderList() {
     // STATE: FILTER / SORT / PAGINATION
     // ==========================
     const [search, setSearch] = useState("");
-    const [status, setStatus] = useState<number | "">("");
-    const [orderType, setOrderType] = useState<number | "">("");
+    const debouncedSearch = useDebounce(search, 400);
+    const [status, setStatus] = useState<number | "">(""); // Using number | "" to match logic B
+    const [orderType, setOrderType] = useState<number | "">(""); // Using number | "" to match logic B
+
     const [sortBy, setSortBy] = useState<SortKey>("createdAt");
     const [sortDesc, setSortDesc] = useState(true);
     const [page, setPage] = useState(1);
@@ -83,20 +108,16 @@ export default function OrderList() {
     const [deletingOrder, setDeletingOrder] = useState<OrderAny | null>(null);
 
     // ==========================
-    // API HOOKS
+    // API HOOKS (LOGIC FROM CODE B INTEGRATED HERE)
     // ==========================
-   const ordersQuery = useOrders({
-        search: search || undefined,
+    const ordersQuery = useOrders({
+        // Logic fix from Code B: Handle empty strings and explicit Number() conversion
+        search: debouncedSearch || undefined,
         
-        // SỬA Ở ĐÂY:
-        // 1. Kiểm tra null/undefined/rỗng
-        // 2. Number() để chuyển chuỗi thành số
-        // 3. as unknown as OrderStatus để ép kiểu số đó về kiểu Enum
         status: (status === "" || status === undefined) 
             ? undefined 
             : (Number(status) as unknown as OrderStatus),
 
-        // SỬA Ở ĐÂY TƯƠNG TỰ:
         orderType: (orderType === "" || orderType === undefined) 
             ? undefined 
             : (Number(orderType) as unknown as OrderType),
@@ -204,9 +225,9 @@ export default function OrderList() {
     };
 
     // ==========================
-    // FORM DIALOG
+    // FORM DIALOG + VALIDATE (UI Logic from Code A)
     // ==========================
-    const [form, setForm] = useState({
+    const [form, setForm] = useState<FormState>({
         orderNumber: "",
         orderType: OrderType.Gas,
         status: OrderStatus.Pending,
@@ -216,8 +237,46 @@ export default function OrderList() {
         contractId: "",
     });
 
+    const [formErrors, setFormErrors] = useState<FieldErrors>({});
+
+    const validateForm = (next: FormState) => {
+        const e: FieldErrors = {};
+
+        if (!String(next.orderNumber ?? "").trim()) e.orderNumber = "Order Number is required";
+        if (!next.contractId) e.contractId = "Contract is required";
+        if (!next.startDate) e.startDate = "Start Date is required";
+        if (!next.endDate) e.endDate = "End Date is required";
+
+        // Validate topupFee
+        const feeRaw = next.topupFee;
+        if (feeRaw === "" || feeRaw === null || feeRaw === undefined) {
+            e.topupFee = "Top-up Fee is required";
+        } else {
+            const feeNum = Number(feeRaw);
+            if (Number.isNaN(feeNum)) e.topupFee = "Top-up Fee must be a number";
+            else if (feeNum < 0) e.topupFee = "Top-up Fee must be >= 0";
+        }
+
+        if (next.startDate && next.endDate) {
+            const start = parseLocalDate(next.startDate);
+            const end = parseLocalDate(next.endDate);
+
+            if (Number.isNaN(start.getTime())) e.startDate = "Invalid Start Date";
+            if (Number.isNaN(end.getTime())) e.endDate = "Invalid End Date";
+
+            if (!e.startDate && !e.endDate && end < start) {
+                e.endDate = "End Date must be greater than or equal to Start Date";
+            }
+        }
+
+        setFormErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
     useEffect(() => {
         if (!formOpen) return;
+
+        setFormErrors({});
 
         if (formMode === "edit" && editingOrder) {
             setForm({
@@ -244,8 +303,41 @@ export default function OrderList() {
 
     const handleFormChange = (e: any) => {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+
+        setForm((prev) => {
+            const next = { ...prev, [name]: value } as FormState;
+
+            // Validate realtime
+            if (
+                name === "startDate" ||
+                name === "endDate" ||
+                name === "contractId" ||
+                name === "orderNumber" ||
+                name === "topupFee"
+            ) {
+                validateForm(next);
+            }
+
+            return next;
+        });
     };
+
+    const canSubmitForm = useMemo(() => {
+        if (!String(form.orderNumber ?? "").trim()) return false;
+        if (!form.contractId) return false;
+        if (!form.startDate || !form.endDate) return false;
+
+        if (
+            formErrors.orderNumber ||
+            formErrors.contractId ||
+            formErrors.startDate ||
+            formErrors.endDate ||
+            formErrors.topupFee
+        )
+            return false;
+
+        return true;
+    }, [form, formErrors]);
 
     const closeForm = () => {
         setFormOpen(false);
@@ -253,7 +345,8 @@ export default function OrderList() {
     };
 
     const submitForm = () => {
-        if (!form.orderNumber || !form.contractId || !form.startDate || !form.endDate) return;
+        const ok = validateForm(form);
+        if (!ok) return;
 
         const payload = {
             ...form,
@@ -325,7 +418,7 @@ export default function OrderList() {
     };
 
     // ==========================
-    // MOBILE CARD ITEM (giống style ContractList)
+    // MOBILE CARD ITEM
     // ==========================
     const MobileOrderCard = ({ order }: { order: any }) => {
         const contractNo = contractNumberById.get(Number(order.contractId)) ?? "-";
@@ -340,7 +433,6 @@ export default function OrderList() {
                 }}
             >
                 <CardContent sx={{ p: 2 }}>
-                    {/* top row */}
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                         <Box sx={{ minWidth: 0 }}>
                             <Typography fontWeight={900} sx={{ color: "primary.main" }} noWrap>
@@ -370,7 +462,6 @@ export default function OrderList() {
 
                     <Divider sx={{ my: 1.5 }} />
 
-                    {/* rows */}
                     <Stack spacing={1}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Typography variant="body2" color="text.secondary">
@@ -417,13 +508,12 @@ export default function OrderList() {
     };
 
     // ==========================
-    // RENDER
+    // RENDER (UI from Code A)
     // ==========================
     return (
         <Box
             sx={{
                 display: "flex",
-                // ✅ FIX LỖI: mobile phải column để NavMenu topbar nằm trên, content nằm dưới
                 flexDirection: { xs: "column", md: "row" },
                 minHeight: "100vh",
                 bgcolor: pageBg,
@@ -433,7 +523,6 @@ export default function OrderList() {
 
             <Box
                 sx={{
-                    // ✅ FIX LỖI: mobile không được ml 240px
                     ml: { xs: 0, md: "240px" },
                     p: { xs: 2, md: 4 },
                     width: "100%",
@@ -684,7 +773,7 @@ export default function OrderList() {
                                     setSortBy(e.target.value as SortKey);
                                     setPage(1);
                                 }}
-                                sx={{ minWidth: 180 }}
+                                sx={{ minWidth: 150 }}
                             >
                                 <MenuItem value="createdAt">{t("orders.createdAt")}</MenuItem>
                                 <MenuItem value="orderNumber">{t("orders.orderNumber")}</MenuItem>
@@ -695,11 +784,12 @@ export default function OrderList() {
                             </TextField>
 
                             <Button
-                                variant="outlined"
+                                variant="text"
                                 onClick={() => {
-                                    setSortDesc(!sortDesc);
+                                    setSortDesc((v) => !v);
                                     setPage(1);
                                 }}
+                                sx={{ fontWeight: 900 }}
                             >
                                 {sortDesc ? t("DESC", { defaultValue: "DESC" }) : t("ASC", { defaultValue: "ASC" })}
                             </Button>
@@ -741,7 +831,6 @@ export default function OrderList() {
                             orders.map((order: any) => <MobileOrderCard key={order.id} order={order} />)
                         )}
 
-                        {/* MOBILE PAGINATION CARD (giống mẫu) */}
                         <Card
                             sx={{
                                 borderRadius: 3,
@@ -904,7 +993,6 @@ export default function OrderList() {
                             </TableBody>
                         </Table>
 
-                        {/* PAGINATION BAR */}
                         <Divider sx={{ borderColor }} />
 
                         <Box
@@ -975,6 +1063,8 @@ export default function OrderList() {
                                 value={form.orderNumber}
                                 onChange={handleFormChange}
                                 placeholder="e.g. ORD-2024-001"
+                                error={!!formErrors.orderNumber}
+                                helperText={formErrors.orderNumber}
                             />
 
                             <TextField
@@ -984,9 +1074,11 @@ export default function OrderList() {
                                 select
                                 value={form.contractId}
                                 onChange={handleFormChange}
+                                error={!!formErrors.contractId}
+                                helperText={formErrors.contractId}
                             >
                                 {contracts.map((c: any) => (
-                                    <MenuItem key={c.id} value={c.id}>
+                                    <MenuItem key={c.id} value={String(c.id)}>
                                         {c.contractNumber} — {c.firstName} {c.lastName}
                                     </MenuItem>
                                 ))}
@@ -1026,6 +1118,8 @@ export default function OrderList() {
                                 InputLabelProps={{ shrink: true }}
                                 value={form.startDate}
                                 onChange={handleFormChange}
+                                error={!!formErrors.startDate}
+                                helperText={formErrors.startDate}
                             />
 
                             <TextField
@@ -1036,6 +1130,8 @@ export default function OrderList() {
                                 InputLabelProps={{ shrink: true }}
                                 value={form.endDate}
                                 onChange={handleFormChange}
+                                error={!!formErrors.endDate}
+                                helperText={formErrors.endDate}
                             />
 
                             <Box sx={{ gridColumn: "1 / -1" }}>
@@ -1046,6 +1142,8 @@ export default function OrderList() {
                                     fullWidth
                                     value={form.topupFee}
                                     onChange={handleFormChange}
+                                    error={!!formErrors.topupFee}
+                                    helperText={formErrors.topupFee}
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
@@ -1062,10 +1160,11 @@ export default function OrderList() {
                         <Button variant="outlined" onClick={closeForm} sx={{ borderRadius: 2 }}>
                             {t("Cancel", { defaultValue: "Cancel" })}
                         </Button>
+
                         <Button
                             variant="contained"
                             onClick={submitForm}
-                            disabled={createMutation.isPending || updateMutation.isPending}
+                            disabled={createMutation.isPending || updateMutation.isPending || !canSubmitForm}
                             sx={{ borderRadius: 2, px: 4 }}
                         >
                             {formMode === "create"
@@ -1098,6 +1197,7 @@ export default function OrderList() {
                         <Button variant="outlined" onClick={closeDelete} sx={{ borderRadius: 2 }}>
                             {t("Cancel", { defaultValue: "Cancel" })}
                         </Button>
+
                         <Button
                             variant="contained"
                             color="error"

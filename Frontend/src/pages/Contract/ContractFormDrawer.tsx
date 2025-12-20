@@ -1,79 +1,358 @@
-import { useEffect } from "react";
+// src/components/ContractFormDrawer/ContractFormDrawer.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Drawer,
     Box,
     Typography,
-    IconButton,
     TextField,
-    Button,
-    Stack,
     MenuItem,
+    Button,
     Divider,
     CircularProgress,
+    Stack,
 } from "@mui/material";
-
-import { FiX } from "react-icons/fi";
-import { useForm } from "react-hook-form";
-import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
 
-// Hooks
-import { useCreateContract, useUpdateContract, useContract } from "@/hooks/useContracts";
 import { useResellers } from "@/hooks/useResellers";
 import { useAddresses } from "@/hooks/useAddresses";
+import { useContract, useCreateContract, useUpdateContract } from "@/hooks/useContracts";
 
-export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess }: any) {
+type Props = {
+    open: boolean;
+    mode: "create" | "edit";
+    id?: number | null;
+    onClose: () => void;
+    onSuccess?: () => void;
+};
+
+type FormState = {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    companyName: string;
+    bankAccountNumber: string;
+    startDate: string; // yyyy-mm-dd
+    endDate: string; // yyyy-mm-dd
+    resellerId: string; // select string
+    addressId: string; // select string
+};
+
+type FieldErrors = Partial<Record<keyof FormState, string>>;
+
+// ====== LIMITS ======
+const MAX_FULLNAME = 50;     // ✅ yêu cầu của bạn: first + space + last <= 50
+const MAX_EMAIL = 100;
+const MIN_PHONE_DIGITS = 9;
+const MAX_PHONE_DIGITS = 10; // ✅ theo yêu cầu bạn
+const MAX_COMPANY = 100;
+const MAX_BANK = 20;         // ✅ theo yêu cầu bạn
+
+// ====== VALIDATORS ======
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ✅ Tên: chỉ CHỮ (unicode) + space + ' + -
+const PERSON_NAME_ALLOWED = /^[\p{L}\s'-]+$/u;
+
+function toDateInputValue(iso?: string) {
+    if (!iso) return "";
+    return String(iso).split("T")[0] ?? "";
+}
+
+function parseLocalDate(dateStr: string) {
+    return new Date(`${dateStr}T00:00:00`);
+}
+
+function countDigits(s: string) {
+    return (s.match(/\d/g) || []).length;
+}
+
+function fullNameLength(firstName?: string, lastName?: string) {
+    const f = (firstName ?? "").trim();
+    const l = (lastName ?? "").trim();
+    if (!f && !l) return 0;
+    return f.length + (f && l ? 1 : 0) + l.length;
+}
+
+// sanitize tên: bỏ ký tự lạ, gom space
+function sanitizePersonName(raw: string) {
+    let s = String(raw ?? "");
+    s = s.replace(/\s+/g, " ");
+    try {
+        s = s.replace(/[^\p{L}\s'-]/gu, "");
+    } catch {
+        s = s.replace(/[^A-Za-zÀ-ỹ\s'-]/g, "");
+    }
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
+}
+
+function sanitizeEmail(raw: string) {
+    let s = String(raw ?? "");
+    s = s.trimStart();
+    if (s.length > MAX_EMAIL) s = s.slice(0, MAX_EMAIL);
+    return s;
+}
+
+function sanitizeCompany(raw: string) {
+    let s = String(raw ?? "");
+    s = s.replace(/\s+/g, " ").trim();
+    if (s.length > MAX_COMPANY) s = s.slice(0, MAX_COMPANY);
+    return s;
+}
+
+/**
+ * ✅ enforce tổng fullname <= 50
+ * - Khi sửa firstName: cắt firstName theo lastName hiện tại
+ * - Khi sửa lastName: cắt lastName theo firstName hiện tại
+ */
+function enforceFullNameLimit(
+    _field: "firstName" | "lastName",
+    incoming: string,
+    otherFieldValue: string
+) {
+    const other = (otherFieldValue ?? "").trim();
+    let current = (incoming ?? "").trim();
+
+    // nếu field đang gõ có ký tự và other cũng có => có 1 dấu cách
+    const space = current && other ? 1 : 0;
+
+    const allowed = MAX_FULLNAME - other.length - space;
+    if (allowed <= 0) return ""; // không còn chỗ
+
+    if (current.length > allowed) current = current.slice(0, allowed);
+    return current;
+}
+
+export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess }: Props) {
     const { t } = useTranslation();
     const isEdit = mode === "edit";
 
-    // --- Hooks lấy dữ liệu bổ trợ ---
-    const { data: resellersData } = useResellers({ pageNumber: 1, pageSize: 100 });
-    const resellers = resellersData?.items || [];
-
-    const { data: addressesData } = useAddresses({ pageNumber: 1, pageSize: 100 });
-    const addresses = addressesData?.items || [];
-
-    // --- Hooks Mutation ---
     const createMutation = useCreateContract();
     const updateMutation = useUpdateContract();
 
-    // --- Hook lấy chi tiết Contract (khi Edit) ---
-    const { data: contractData, isLoading: isLoadingContract } = useContract(isEdit && open ? id : 0);
+    const { data: resellerData, isLoading: resellerLoading } = useResellers({
+        pageNumber: 1,
+        pageSize: 200,
+    });
+    const resellers = resellerData?.items ?? [];
 
-    const { register, handleSubmit, reset, watch } = useForm({
-        defaultValues: {
-            firstName: "",
-            lastName: "",
-            email: "",
-            phone: "",
-            companyName: "",
-            bankAccountNumber: "",
-            startDate: "",
-            endDate: "",
-            resellerId: "",
-            addressId: "",
-        },
+    const { data: addressData, isLoading: addressLoading } = useAddresses({
+        pageNumber: 1,
+        pageSize: 200,
+    });
+    const addresses = addressData?.items ?? [];
+
+    const contractId = isEdit && id ? Number(id) : 0;
+    const { data: contractData, isLoading: contractLoading } = useContract(contractId);
+
+    const [form, setForm] = useState<FormState>({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        companyName: "",
+        bankAccountNumber: "",
+        startDate: "",
+        endDate: "",
+        resellerId: "",
+        addressId: "",
     });
 
-    // LOAD DATA INTO FORM
+    const [errors, setErrors] = useState<FieldErrors>({});
+
+    const validate = (next: FormState) => {
+        const e: FieldErrors = {};
+
+        // ===== FULL NAME (combined <= 50) =====
+        const fn = next.firstName.trim();
+        const ln = next.lastName.trim();
+
+        if (!fn) e.firstName = "First Name is required";
+        else if (!PERSON_NAME_ALLOWED.test(fn)) e.firstName = "First Name only allows letters, space, ' and -";
+
+        if (!ln) e.lastName = "Last Name is required";
+        else if (!PERSON_NAME_ALLOWED.test(ln)) e.lastName = "Last Name only allows letters, space, ' and -";
+
+        if (fn && ln) {
+            const len = fullNameLength(fn, ln);
+            if (len > MAX_FULLNAME) {
+                // gắn lỗi cho cả 2 để người dùng thấy rõ
+                e.firstName = `Full name (First + Last) max ${MAX_FULLNAME} characters`;
+                e.lastName = `Full name (First + Last) max ${MAX_FULLNAME} characters`;
+            }
+        }
+
+        // ===== email =====
+        const em = next.email.trim();
+        if (!em) e.email = "Email is required";
+        else if (em.length > MAX_EMAIL) e.email = `Email max ${MAX_EMAIL} characters`;
+        else if (!EMAIL_REGEX.test(em)) e.email = "Invalid Email";
+
+        // ===== phone (digits only, 9..10 digits) =====
+        const phone = next.phone.trim();
+        if (!phone) e.phone = "Phone is required";
+        else {
+            const digits = countDigits(phone);
+            if (digits < MIN_PHONE_DIGITS) e.phone = `Phone must contain at least ${MIN_PHONE_DIGITS} digits`;
+            else if (digits > MAX_PHONE_DIGITS) e.phone = `Phone must contain at most ${MAX_PHONE_DIGITS} digits`;
+        }
+
+        // ===== company =====
+        const company = next.companyName.trim();
+        if (!company) e.companyName = "Company Name is required";
+        else if (company.length > MAX_COMPANY) e.companyName = `Company Name max ${MAX_COMPANY} characters`;
+
+        // ===== bank (digits-only, max 20) =====
+        const bank = next.bankAccountNumber.trim();
+        if (!bank) e.bankAccountNumber = "Bank Account Number is required";
+        else if (bank.length > MAX_BANK) e.bankAccountNumber = `Bank Account Number max ${MAX_BANK} characters`;
+        else if (!/^\d+$/.test(bank)) e.bankAccountNumber = "Bank Account Number must contain digits only";
+
+        // ===== reseller/address =====
+        if (!next.resellerId || Number(next.resellerId) <= 0) e.resellerId = "Reseller is required";
+        if (!next.addressId || Number(next.addressId) <= 0) e.addressId = "Address is required";
+
+        // ===== dates =====
+        if (!next.startDate) e.startDate = "Start Date is required";
+        if (!next.endDate) e.endDate = "End Date is required";
+
+        if (next.startDate) {
+            const d = parseLocalDate(next.startDate);
+            if (Number.isNaN(d.getTime())) e.startDate = "Invalid Start Date";
+        }
+        if (next.endDate) {
+            const d = parseLocalDate(next.endDate);
+            if (Number.isNaN(d.getTime())) e.endDate = "Invalid End Date";
+        }
+
+        if (next.startDate && next.endDate) {
+            const start = parseLocalDate(next.startDate);
+            const end = parseLocalDate(next.endDate);
+            if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end < start) {
+                e.endDate = "End Date must be greater than or equal to Start Date";
+            }
+        }
+
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
+    // ✅ chặn paste ký tự lạ
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        const name = (e.target as HTMLInputElement).name as keyof FormState;
+        const text = e.clipboardData.getData("text");
+
+        if (name === "bankAccountNumber") {
+            if (/\D/.test(text)) e.preventDefault();
+        }
+
+        if (name === "phone") {
+            if (/\D/.test(text)) e.preventDefault(); // digits-only
+        }
+
+        if (name === "firstName" || name === "lastName") {
+            try {
+                if (/[^\p{L}\s'-]/u.test(text)) e.preventDefault();
+            } catch {
+                if (/[^A-Za-zÀ-ỹ\s'-]/.test(text)) e.preventDefault();
+            }
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const name = e.target.name as keyof FormState;
+        let value = e.target.value;
+
+        setForm((prev) => {
+            const next = { ...prev };
+
+            // ===== first/last with combined max 50 =====
+            if (name === "firstName") {
+                value = sanitizePersonName(value);
+                value = enforceFullNameLimit("firstName", value, prev.lastName);
+                next.firstName = value;
+            } else if (name === "lastName") {
+                value = sanitizePersonName(value);
+                value = enforceFullNameLimit("lastName", value, prev.firstName);
+                next.lastName = value;
+            }
+
+            // ===== email =====
+            else if (name === "email") {
+                value = sanitizeEmail(value);
+                next.email = value;
+            }
+
+            // ===== phone digits-only, max 10 digits =====
+            else if (name === "phone") {
+                value = value.replace(/\D/g, ""); // chỉ số
+                if (value.length > MAX_PHONE_DIGITS) value = value.slice(0, MAX_PHONE_DIGITS);
+                next.phone = value;
+            }
+
+            // ===== company =====
+            else if (name === "companyName") {
+                value = sanitizeCompany(value);
+                next.companyName = value;
+            }
+
+            // ===== bank digits-only, max 20 =====
+            else if (name === "bankAccountNumber") {
+                value = value.replace(/\D/g, "");
+                if (value.length > MAX_BANK) value = value.slice(0, MAX_BANK);
+                next.bankAccountNumber = value;
+            }
+
+            // ===== other fields =====
+            else {
+                (next as any)[name] = value;
+            }
+
+            validate(next);
+            return next as FormState;
+        });
+    };
+
+    const canSubmit = useMemo(() => {
+        if (!form.firstName.trim()) return false;
+        if (!form.lastName.trim()) return false;
+
+        // ✅ full name combined
+        if (fullNameLength(form.firstName, form.lastName) > MAX_FULLNAME) return false;
+
+        if (!form.email.trim()) return false;
+        if (!form.phone.trim()) return false;
+        if (!form.companyName.trim()) return false;
+        if (!form.bankAccountNumber.trim()) return false;
+        if (!form.startDate || !form.endDate) return false;
+        if (!form.resellerId || Number(form.resellerId) <= 0) return false;
+        if (!form.addressId || Number(form.addressId) <= 0) return false;
+
+        if (
+            errors.firstName ||
+            errors.lastName ||
+            errors.email ||
+            errors.phone ||
+            errors.companyName ||
+            errors.bankAccountNumber ||
+            errors.startDate ||
+            errors.endDate ||
+            errors.resellerId ||
+            errors.addressId
+        ) return false;
+
+        return true;
+    }, [form, errors]);
+
     useEffect(() => {
         if (!open) return;
 
-        if (isEdit && contractData) {
-            reset({
-                firstName: contractData.firstName,
-                lastName: contractData.lastName,
-                email: contractData.email,
-                phone: contractData.phone,
-                companyName: contractData.companyName ?? "",
-                bankAccountNumber: contractData.bankAccountNumber ?? "",
-                startDate: contractData.startDate ? contractData.startDate.split("T")[0] : "",
-                endDate: contractData.endDate ? contractData.endDate.split("T")[0] : "",
-                resellerId: String(contractData.resellerId || ""),
-                addressId: String(contractData.addressId || ""),
-            });
-        } else if (!isEdit) {
-            reset({
+        setErrors({});
+
+        if (!isEdit) {
+            const next: FormState = {
                 firstName: "",
                 lastName: "",
                 email: "",
@@ -84,152 +363,274 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                 endDate: "",
                 resellerId: "",
                 addressId: "",
-            });
+            };
+            setForm(next);
+            validate(next);
+            return;
         }
-    }, [open, isEdit, contractData, reset]);
 
-    // SUBMIT HANDLER
-    const onSubmit = (form: any) => {
+        if (isEdit && contractData) {
+            const rawFirst = sanitizePersonName(contractData.firstName ?? "");
+            const rawLast = sanitizePersonName(contractData.lastName ?? "");
+
+            // ✅ enforce combined max 50 cho data edit luôn
+            const fixedFirst = enforceFullNameLimit("firstName", rawFirst, rawLast);
+            const fixedLast = enforceFullNameLimit("lastName", rawLast, fixedFirst);
+
+            const next: FormState = {
+                firstName: fixedFirst,
+                lastName: fixedLast,
+                email: sanitizeEmail(contractData.email ?? ""),
+                phone: String(contractData.phone ?? "").replace(/\D/g, "").slice(0, MAX_PHONE_DIGITS),
+                companyName: sanitizeCompany(contractData.companyName ?? ""),
+                bankAccountNumber: String(contractData.bankAccountNumber ?? "").replace(/\D/g, "").slice(0, MAX_BANK),
+                startDate: toDateInputValue(contractData.startDate),
+                endDate: toDateInputValue(contractData.endDate),
+                resellerId: contractData.resellerId != null ? String(contractData.resellerId) : "",
+                addressId: contractData.addressId != null ? String(contractData.addressId) : "",
+            };
+
+            setForm(next);
+            validate(next);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, isEdit, contractData]);
+
+    const loading = resellerLoading || addressLoading || (isEdit && contractLoading);
+
+    const handleSubmit = () => {
+        const ok = validate(form);
+        if (!ok) return;
+
         const payload: any = {
-            firstName: form.firstName,
-            lastName: form.lastName,
-            email: form.email,
-            phone: form.phone,
-            companyName: form.companyName ?? "",
-            bankAccountNumber: form.bankAccountNumber ?? "",
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            email: form.email.trim().toLowerCase(),
+            phone: form.phone.trim(),
+            companyName: form.companyName.trim(),
+            bankAccountNumber: form.bankAccountNumber.trim(),
             resellerId: Number(form.resellerId) || 0,
             addressId: Number(form.addressId) || 0,
-            startDate: form.startDate ? new Date(form.startDate).toISOString() : new Date().toISOString(),
-            endDate: form.endDate ? new Date(form.endDate).toISOString() : new Date().toISOString(),
+
+            startDate: form.startDate ? parseLocalDate(form.startDate).toISOString() : new Date().toISOString(),
+            endDate: form.endDate ? parseLocalDate(form.endDate).toISOString() : new Date().toISOString(),
+
             pdfLink: contractData?.pdfLink || "",
             contractNumber: contractData?.contractNumber || "AUTO-" + Date.now(),
         };
 
-        const mutationOptions = {
-            onSuccess: () => {
-                toast.success(
-                    isEdit ? t("contractEdit.toast.updated") : t("contractCreate.toast.created")
-                );
-                onSuccess?.();
-                onClose();
-            },
-            onError: (err: any) => {
-                console.error("SAVE ERROR:", err);
-                toast.error(
-                    isEdit ? t("contractEdit.toast.updateFailed") : t("contractCreate.toast.createFailed")
-                );
-            },
+        const onDone = () => {
+            toast.success(
+                isEdit
+                    ? t("contractEdit.toast.updated", { defaultValue: "Updated" })
+                    : t("contractCreate.toast.created", { defaultValue: "Created" })
+            );
+            onSuccess?.();
+            onClose();
+        };
+
+        const onFail = (err: any) => {
+            console.error("SAVE ERROR:", err);
+            toast.error(
+                isEdit
+                    ? t("contractEdit.toast.updateFailed", { defaultValue: "Update failed" })
+                    : t("contractCreate.toast.createFailed", { defaultValue: "Create failed" })
+            );
         };
 
         if (isEdit && id) {
-            updateMutation.mutate({ id, data: payload }, mutationOptions);
+            updateMutation.mutate({ id: Number(id), data: payload } as any, { onSuccess: onDone, onError: onFail });
         } else {
-            createMutation.mutate(payload, mutationOptions);
+            createMutation.mutate(payload, { onSuccess: onDone, onError: onFail });
         }
     };
-
-    const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
     return (
         <Drawer
             anchor="right"
             open={open}
             onClose={onClose}
-            PaperProps={{ sx: { width: 420, p: 3 } }}
+            PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
         >
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6">
-                    {isEdit ? t("contractEdit.title") : t("contractCreate.title")}
+            <Box sx={{ p: 2.5 }}>
+                <Typography variant="h6" fontWeight={900}>
+                    {isEdit
+                        ? t("contractEdit.title", { defaultValue: "Edit Contract" })
+                        : t("contractCreate.title", { defaultValue: "Create Contract" })}
                 </Typography>
-                <IconButton onClick={onClose}>
-                    <FiX />
-                </IconButton>
-            </Box>
 
-            <Divider sx={{ my: 2 }} />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {t("contractCreate.subtitle", { defaultValue: "Fill in the details below." })}
+                </Typography>
 
-            {isLoadingContract && isEdit ? (
-                <Box display="flex" justifyContent="center" p={4}>
-                    <CircularProgress />
-                </Box>
-            ) : (
-                <form onSubmit={handleSubmit(onSubmit)}>
-                    <Stack spacing={2}>
-                        <TextField label={t("contractCreate.firstName")} {...register("firstName")} />
-                        <TextField label={t("contractCreate.lastName")} {...register("lastName")} />
-                        <TextField label={t("contractCreate.email")} {...register("email")} />
-                        <TextField label={t("contractCreate.phone")} {...register("phone")} />
+                <Divider sx={{ my: 2 }} />
 
-                        <Stack direction="row" spacing={2}>
+                {loading ? (
+                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 2 }}>
+                        <CircularProgress size={18} />
+                        <Typography color="text.secondary">
+                            {t("Loading...", { defaultValue: "Loading..." })}
+                        </Typography>
+                    </Stack>
+                ) : (
+                    <Stack spacing={1.5}>
+                        <TextField
+                            label={t("contractCreate.firstName", { defaultValue: "First name" })}
+                            name="firstName"
+                            value={form.firstName}
+                            onChange={handleChange}
+                            onPaste={handlePaste}
+                            error={!!errors.firstName}
+                            helperText={errors.firstName}
+                            // để user không paste 1 phát dài quá (nhưng chính vẫn là enforce combined)
+                            inputProps={{ maxLength: MAX_FULLNAME }}
+                            fullWidth
+                        />
+
+                        <TextField
+                            label={t("contractCreate.lastName", { defaultValue: "Last name" })}
+                            name="lastName"
+                            value={form.lastName}
+                            onChange={handleChange}
+                            onPaste={handlePaste}
+                            error={!!errors.lastName}
+                            helperText={errors.lastName}
+                            inputProps={{ maxLength: MAX_FULLNAME }}
+                            fullWidth
+                        />
+
+                        <TextField
+                            label={t("contractCreate.email", { defaultValue: "Email" })}
+                            name="email"
+                            value={form.email}
+                            onChange={handleChange}
+                            error={!!errors.email}
+                            helperText={errors.email}
+                            inputProps={{ maxLength: MAX_EMAIL }}
+                            fullWidth
+                        />
+
+                        <TextField
+                            label={t("contractCreate.phone", { defaultValue: "Phone" })}
+                            name="phone"
+                            value={form.phone}
+                            onChange={handleChange}
+                            onPaste={handlePaste}
+                            error={!!errors.phone}
+                            helperText={errors.phone}
+                            inputProps={{ inputMode: "numeric", maxLength: MAX_PHONE_DIGITS }}
+                            fullWidth
+                        />
+
+                        <Stack direction="row" spacing={1.5}>
                             <TextField
                                 type="date"
-                                label={t("contractCreate.startDate")}
+                                label={t("contractCreate.startDate", { defaultValue: "Start date" })}
+                                name="startDate"
+                                value={form.startDate}
+                                onChange={handleChange}
+                                error={!!errors.startDate}
+                                helperText={errors.startDate}
                                 InputLabelProps={{ shrink: true }}
-                                {...register("startDate")}
-                                value={watch("startDate") || ""}
                                 fullWidth
                             />
+
                             <TextField
                                 type="date"
-                                label={t("contractCreate.endDate")}
+                                label={t("contractCreate.endDate", { defaultValue: "End date" })}
+                                name="endDate"
+                                value={form.endDate}
+                                onChange={handleChange}
+                                error={!!errors.endDate}
+                                helperText={errors.endDate}
                                 InputLabelProps={{ shrink: true }}
-                                {...register("endDate")}
-                                value={watch("endDate") || ""}
                                 fullWidth
                             />
                         </Stack>
 
-                        <TextField label={t("contractCreate.companyName")} {...register("companyName")} />
+                        <TextField
+                            label={t("contractCreate.companyName", { defaultValue: "Company name" })}
+                            name="companyName"
+                            value={form.companyName}
+                            onChange={handleChange}
+                            error={!!errors.companyName}
+                            helperText={errors.companyName}
+                            inputProps={{ maxLength: MAX_COMPANY }}
+                            fullWidth
+                        />
 
                         <TextField
-                            label={t("contractCreate.bankAccountNumber")}
-                            {...register("bankAccountNumber")}
+                            label={t("contractCreate.bankAccountNumber", { defaultValue: "Bank account number" })}
+                            name="bankAccountNumber"
+                            value={form.bankAccountNumber}
+                            onChange={handleChange}
+                            onPaste={handlePaste}
+                            error={!!errors.bankAccountNumber}
+                            helperText={errors.bankAccountNumber}
+                            inputProps={{ inputMode: "numeric", maxLength: MAX_BANK }}
+                            fullWidth
                         />
 
                         <TextField
                             select
-                            label={t("contractCreate.reseller")}
-                            {...register("resellerId")}
-                            value={watch("resellerId") || ""}
+                            label={t("contractCreate.reseller", { defaultValue: "Reseller" })}
+                            name="resellerId"
+                            value={form.resellerId}
+                            onChange={handleChange}
+                            error={!!errors.resellerId}
+                            helperText={errors.resellerId}
+                            fullWidth
                         >
-                            <MenuItem value="">{t("contractCreate.select")}</MenuItem>
                             {resellers.map((r: any) => (
                                 <MenuItem key={r.id} value={String(r.id)}>
-                                    {r.name}
+                                    {r.name ?? r.resellerName ?? `#${r.id}`}
                                 </MenuItem>
                             ))}
                         </TextField>
 
                         <TextField
                             select
-                            label={t("contractCreate.address")}
-                            {...register("addressId")}
-                            value={watch("addressId") || ""}
+                            label={t("contractCreate.address", { defaultValue: "Address" })}
+                            name="addressId"
+                            value={form.addressId}
+                            onChange={handleChange}
+                            error={!!errors.addressId}
+                            helperText={errors.addressId}
+                            fullWidth
                         >
-                            <MenuItem value="">{t("contractCreate.select")}</MenuItem>
                             {addresses.map((a: any) => (
                                 <MenuItem key={a.id} value={String(a.id)}>
-                                    {a.houseNumber} • {a.zipCode}
+                                    {a.zipCode} {a.houseNumber}
+                                    {a.extension ? `-${a.extension}` : ""}
                                 </MenuItem>
                             ))}
                         </TextField>
-
-                        <Stack direction="row" justifyContent="flex-end" spacing={2}>
-                            <Button onClick={onClose} disabled={isSubmitting}>
-                                {t("Cancel")}
-                            </Button>
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                disabled={isSubmitting}
-                                startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null}
-                            >
-                                {isEdit ? t("Save") : t("Create")}
-                            </Button>
-                        </Stack>
                     </Stack>
-                </form>
-            )}
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                    <Button variant="text" onClick={onClose}>
+                        {t("common.cancel", { defaultValue: "Cancel" })}
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        onClick={handleSubmit}
+                        disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}
+                        sx={{ fontWeight: 900 }}
+                    >
+                        {isEdit
+                            ? updateMutation.isPending
+                                ? t("Saving...", { defaultValue: "Saving..." })
+                                : t("common.save", { defaultValue: "Save" })
+                            : createMutation.isPending
+                                ? t("Creating...", { defaultValue: "Creating..." })
+                                : t("common.create", { defaultValue: "Create" })}
+                    </Button>
+                </Stack>
+            </Box>
         </Drawer>
     );
 }

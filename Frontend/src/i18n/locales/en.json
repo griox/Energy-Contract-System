@@ -21,7 +21,13 @@
         "generatePdf": "Generate PDF",
         "default": "Default",
         "na": "N/A",
-        "close": "Close"
+        "close": "Close",
+        "pageSize": "Page size",
+        "load": "LOAD",
+        "loading": "Loading...",
+        "page": "Page",
+        "note": "Note",
+        "delete": "Delete"
     },
     "Home": "Home",
     "Contracts List": "Contracts List",
@@ -365,5 +371,56 @@
         "templatePreview": "Template Preview:",
         "noPreview": "No preview available.",
         "generating": "Generating..."
+    },
+    "history": {
+        "title": "Contract History",
+        "subtitle": "View change logs by ContractId",
+        "quick": "Quick: ",
+        "or": "or",
+        "contractId": "ContractId",
+        "sectionTitle": "Contract history",
+        "currentId": "ContractId",
+        "emptyPrompt": "Enter ContractId to view history.",
+        "loadError": "Failed to load history:",
+        "noChanges": "No change logs yet.",
+        "time": "Timestamp",
+        "old": "Old value",
+        "new": "New value",
+        "search": "Search",
+        "searchPlaceholder": "Search fields/values...",
+        "contractPlaceholder": "Select contract...",
+        "totalRecords": "Total records",
+        "totalChanges": "Total changes",
+        "pickContract": "Select a contract to view history.",
+        "noResults": "No changes found.",
+        "summary": "CHANGE SUMMARY",
+        "changes": "changes",
+        "detail": "Change details",
+        "delete": "Delete record",
+        "deleteTitle": "Delete Contract History?",
+        "deleteConfirm": "Are you sure you want to delete this record?",
+        "deleteFailed": "Delete failed:"
+    },
+    "auth": {
+        "signup": {
+            "success": "Sign up successful!",
+            "failed": "Sign up failed.",
+            "usernameExists": "Username already exists",
+            "emailExists": "Email already exists"
+        }
+    },
+    "login": {
+        "success": "Login successful!",
+        "failed": "Login failed."
+    },
+    "order": {
+        "toast": {
+            "created": "Order created successfully!",
+            "createFailed": "Failed to create order.",
+            "updated": "Order updated successfully!",
+            "updateFailed": "Failed to update order.",
+            "deleted": "Order deleted.",
+            "deleteFailed": "Failed to delete order."
+        }
     }
 }

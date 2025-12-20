@@ -44,13 +44,7 @@ export default function NotFoundPage() {
                     404
                 </Typography>
 
-                <Box sx={{ mt: -4, mb: 4 }}>
-                    <img 
-                        src="https://github.githubassets.com/images/modules/site/octocats/octocat-1.png" 
-                        alt="Lost Octocat" 
-                        style={{ height: "200px", filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.5))" }}
-                    />
-                </Box>
+               
 
                 <Typography variant="h4" sx={{ fontWeight: 600, mb: 2, color: "#fff" }}>
                     This is not the web page you are looking for.
