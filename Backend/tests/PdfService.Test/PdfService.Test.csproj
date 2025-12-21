@@ -33,7 +33,7 @@
 
     <ItemGroup>
       <None Update="appsettings.tests.json">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 
