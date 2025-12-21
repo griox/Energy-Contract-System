@@ -2,7 +2,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import axios from "axios";
 const api_pdf = axios.create({
     baseURL: import.meta.env.VITE_PDF_URL_API ,
-    timeout: 50000,
+    timeout: 80000,
     headers: {
         "Content-Type": "application/json"
     }
