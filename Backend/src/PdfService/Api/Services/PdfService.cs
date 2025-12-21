@@ -1,8 +1,10 @@
 using Api.Services.Interfaces;
-using Api.VMs;
+using Api.VMs; // Đảm bảo namespace chứa ContractPdfRequest và OrderPdfDto
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq; // Cần cho .Any()
+using System.Text; // Cần cho StringBuilder
 using System.Threading.Tasks;
 
 namespace Api.Services;
@@ -40,7 +42,6 @@ public class PdfService : IPdfService
             {
                 try 
                 {
-                    // Đặt trong try-catch con để nếu xóa lỗi cũng không chặn việc tạo file mới
                     _logger.LogInformation($"Attempting to delete old PDF: {request.CurrentPdfUrl}");
                     await _storageService.DeleteFileAsync(request.CurrentPdfUrl);
                 }
@@ -57,12 +58,51 @@ public class PdfService : IPdfService
 
             var htmlTemplate = await _templateService.GetTemplateByNameAsync(templateName);
 
-            // 2. Chuẩn bị dữ liệu map
+            // =========================================================================
+            // 2. XỬ LÝ DỮ LIỆU: Tạo các dòng HTML cho bảng Order
+            // =========================================================================
+            var sbOrders = new StringBuilder();
+
+            if (request.Orders != null && request.Orders.Any())
+            {
+                foreach (var order in request.Orders)
+                {
+                    // Format dữ liệu hiển thị
+                    string period = $"{order.StartDate:dd/MM/yyyy} - {order.EndDate:dd/MM/yyyy}";
+                    string fee = order.TopupFee.ToString("N0"); // N0: 1,000 | N2: 1,000.00
+
+                    // Mapping Enum sang tên hiển thị (Bạn có thể tách ra hàm riêng nếu muốn)
+                    string typeName = order.OrderType == 1 ? "Gas" : "Electricity"; 
+                    
+                    // Logic màu sắc đơn giản cho Status
+                    string statusName = order.Status == 1 ? "Active" : "Pending";
+                    string statusColor = order.Status == 1 ? "#27ae60" : "#f39c12"; // Xanh hoặc Cam
+
+                    // Tạo dòng TR
+                    sbOrders.AppendLine($@"
+                        <tr>
+                            <td><strong>{order.OrderNumber}</strong></td>
+                            <td>{typeName}</td>
+                            <td>{period}</td>
+                            <td style='color:{statusColor}; font-weight:bold;'>{statusName}</td>
+                            <td style='text-align: right;'>{fee}</td>
+                        </tr>");
+                }
+            }
+            else
+            {
+                // Nếu không có Order nào
+                sbOrders.AppendLine("<tr><td colspan='5' style='text-align:center; padding: 20px;'>No services registered in this contract.</td></tr>");
+            }
+
+            // 3. Chuẩn bị dữ liệu map vào Template
             var templateData = new Dictionary<string, string>
             {
+                // Thông tin chung
                 { "ContractNumber", request.ContractNumber },
-                { "StartDate", request.StartDate.ToString("dd/MM/yyyy") },
-                { "EndDate", request.EndDate.ToString("dd/MM/yyyy") },
+                { "GeneratedDate", DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm") },
+                
+                // Thông tin khách hàng
                 { "FullName", $"{request.FirstName} {request.LastName}".Trim() },
                 { "FirstName", request.FirstName },
                 { "LastName", request.LastName },
@@ -70,25 +110,31 @@ public class PdfService : IPdfService
                 { "Phone", request.Phone },
                 { "CompanyName", request.CompanyName ?? "N/A" },
                 { "BankAccount", request.BankAccountNumber ?? "N/A" },
-                { "Address", request.AddressLine },
-                { "TotalAmount", request.TotalAmount.ToString("N2") },
+                { "Address", request.AddressLine ?? "" }, // Template mới có thể không dùng, nhưng cứ giữ lại
+                
+                // Thông tin hợp đồng
+                { "StartDate", request.StartDate.ToString("dd/MM/yyyy") },
+                { "EndDate", request.EndDate.ToString("dd/MM/yyyy") },
+                { "TotalAmount", request.TotalAmount.ToString("N0") },
                 { "Currency", request.Currency },
-                { "GeneratedDate", DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm") }
+
+                // QUAN TRỌNG: Chèn chuỗi HTML danh sách Order vào đây
+                { "OrderRows", sbOrders.ToString() }
             };
 
-            // 3. Render HTML
+            // 4. Render HTML (Thay thế biến)
             var renderedHtml = _templateService.RenderTemplate(htmlTemplate, templateData);
 
-            // 4. Generate PDF (Bước này hay bị Timeout nhất)
+            // 5. Generate PDF (Puppeteer/Chromium)
             var pdfBytes = await _pdfGenerator.GeneratePdfFromHtmlAsync(renderedHtml);
 
-            // 5. Upload lên Storage
+            // 6. Upload lên Storage
             var fileName = $"contract_{request.ContractNumber}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
             var pdfUrl = await _storageService.UploadPdfAsync(pdfBytes, fileName);
 
             _logger.LogInformation($"PDF generated & uploaded: {fileName}");
 
-            // 6. Cập nhật URL sang Customer Service
+            // 7. Cập nhật URL sang Customer Service
             try 
             {
                 _logger.LogInformation("Updating Contract PdfUrl in Customer Service...");
@@ -96,7 +142,6 @@ public class PdfService : IPdfService
             }
             catch(Exception ex)
             {
-                // Log lỗi nhưng vẫn trả về thành công cho người dùng vì file PDF đã tạo xong rồi
                 _logger.LogError(ex, "PDF created but failed to update Customer Service.");
             }
 
@@ -110,7 +155,6 @@ public class PdfService : IPdfService
         catch (Exception ex)
         {
             _logger.LogError(ex, $"[FAILED] Error generating PDF for contract: {request.ContractNumber}");
-            // Trả về Exception message để Frontend hiển thị toast
             return new PdfGenerationResult
             {
                 Success = false,
