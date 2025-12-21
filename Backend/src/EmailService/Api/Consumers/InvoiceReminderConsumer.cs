@@ -1,21 +1,19 @@
- using MassTransit;
+using MassTransit;
 using Shared.Events;
-using MailKit.Net.Smtp;
-using MimeKit;
+using Api.Service; // Import Interface
 using System.Globalization;
-using MailKit.Security;
 
-namespace Api.Consumers; // Đặt namespace chuẩn đồng bộ với các file khác
+namespace Api.Consumers;
 
 public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
 {
     private readonly ILogger<InvoiceReminderConsumer> _logger;
-    private readonly IConfiguration _configuration;
+    private readonly IEmailSender _emailSender; // Inject Service gửi mail
 
-    public InvoiceReminderConsumer(ILogger<InvoiceReminderConsumer> logger, IConfiguration configuration)
+    public InvoiceReminderConsumer(ILogger<InvoiceReminderConsumer> logger, IEmailSender emailSender)
     {
         _logger = logger;
-        _configuration = configuration;
+        _emailSender = emailSender;
     }
 
     public async Task Consume(ConsumeContext<InvoiceReminderEvent> context)
@@ -25,29 +23,11 @@ public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
 
         try
         {
-            // 1. Cấu hình Email (Áp dụng công thức chuẩn)
-            var senderName = _configuration["EmailSettings:SenderName"] ?? "Energy System";
-            
-            // 👇 Sender Email (Hiển thị cho khách): nh920211@gmail.com
-            var senderEmail = _configuration["EmailSettings:SenderEmail"];
-            
-            // Mật khẩu (SMTP Key)
-            var appPassword = _configuration["EmailSettings:AppPassword"];
-            
-            // Cấu hình Host/Port
-            var smtpHost = "smtp-relay.brevo.com";
-            var smtpPort = 2525; // Port thần thánh
-            
-            // 👇 QUAN TRỌNG: ID đăng nhập riêng của Brevo (Lấy từ ảnh bạn gửi)
-            var smtpLoginUser = "9e501d001@smtp-brevo.com";
-
-            // 👇 SỬA LINK: Thay localhost bằng link Frontend thật
+            // 1. Chuẩn bị dữ liệu (Frontend URL, Link thanh toán)
             var frontendUrl = "https://energy-contract-system-six.vercel.app";
-            
-            // Link thanh toán
             var checkoutLink = $"{frontendUrl}/payments/checkout?contract={msg.ContractNumber}";
 
-            // 2. Format dữ liệu
+            // 2. Format dữ liệu hiển thị (Tiền tệ, Ngày tháng)
             var cultureInfo = new CultureInfo("vi-VN");
             string formattedAmount = msg.Amount.ToString("N0", cultureInfo); 
             string formattedDate = msg.DueDate.ToString("dd/MM/yyyy");
@@ -56,17 +36,9 @@ public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
                 ? msg.Description 
                 : $"Thanh toán định kỳ hợp đồng {msg.ContractNumber}";
 
-            // 3. Tạo Email
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(senderName, senderEmail)); // Gửi từ Gmail
-            message.To.Add(new MailboxAddress(msg.FullName, msg.Email));
-            
-            message.Subject = $"[NHẮC THANH TOÁN] Sắp hết hạn - {description}";
-
-            var bodyBuilder = new BodyBuilder();
-            
-            // HTML Template (Giữ nguyên style đẹp của bạn)
-            bodyBuilder.HtmlBody = $@"
+            // 3. Chuẩn bị HTML Template
+            // Lưu ý: CSS dùng {{ }} để tránh xung đột với biến C# { }
+            var htmlContent = $@"
             <!DOCTYPE html>
             <html>
             <head>
@@ -114,30 +86,22 @@ public class InvoiceReminderConsumer : IConsumer<InvoiceReminderEvent>
 
                     <div class='footer'>
                         <p>Hotline hỗ trợ: 1900 1234 | Email: support@energysystem.com</p>
-                        <p>&copy; 2025 Energy System. All rights reserved.</p>
+                        <p>&copy; {DateTime.Now.Year} Energy System. All rights reserved.</p>
                     </div>
                 </div>
             </body>
             </html>";
 
-            message.Body = bodyBuilder.ToMessageBody();
+            // 4. Gọi Service gửi mail
+            // Tiêu đề mail cũng được format tại đây
+            var emailSubject = $"[NHẮC THANH TOÁN] Sắp hết hạn - {description}";
 
-            // 4. Gửi Mail
-            using var client = new SmtpClient();
-            client.Timeout = 10000;
-
-            _logger.LogInformation($"[CONNECT] {smtpHost}:{smtpPort}");
-            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.Auto);
-            
-            _logger.LogInformation($"[AUTH] Đang đăng nhập bằng ID: {smtpLoginUser}...");
-            
-            // 👇 QUAN TRỌNG: Đăng nhập bằng User Brevo (9e44aa...), KHÔNG dùng senderEmail
-            await client.AuthenticateAsync(smtpLoginUser, appPassword);
-
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
-
-            _logger.LogInformation($"✅ [SUCCESS] Đã gửi nhắc thanh toán tới {msg.Email}");
+            await _emailSender.SendEmailAsync(
+                msg.FullName, 
+                msg.Email, 
+                emailSubject, 
+                htmlContent
+            );
         }
         catch (Exception ex)
         {

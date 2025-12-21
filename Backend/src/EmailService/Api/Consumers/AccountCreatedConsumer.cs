@@ -1,74 +1,43 @@
 using MassTransit;
 using Shared.Events;
-using MailKit.Net.Smtp;
-using MimeKit;
-using MailKit.Security; 
+using Api.Service; // Import Interface
 
 namespace Api.Consumers;
 
 public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 {
     private readonly ILogger<AccountCreatedConsumer> _logger;
-    private readonly IConfiguration _configuration;
+    private readonly IEmailSender _emailSender; // Inject service gửi mail
 
-    public AccountCreatedConsumer(ILogger<AccountCreatedConsumer> logger, IConfiguration configuration)
+    public AccountCreatedConsumer(ILogger<AccountCreatedConsumer> logger, IEmailSender emailSender)
     {
         _logger = logger;
-        _configuration = configuration;
+        _emailSender = emailSender;
     }
 
     public async Task Consume(ConsumeContext<AccountCreatedEvent> context)
     {
         var msg = context.Message;
-        _logger.LogInformation($"[RabbitMQ] Nhận thông báo tạo tài khoản mới: {msg.Email}");
+        _logger.LogInformation($"[RabbitMQ] Nhận event tạo tài khoản: {msg.Email}");
 
         try
         {
-            // 1. Đọc cấu hình
-            var senderName = _configuration["EmailSettings:SenderName"] ?? "Energy System";
+            var loginLink = "https://energy-contract-system-six.vercel.app";
             
-            // 👇 VẪN GIỮ BIẾN NÀY (Để email gửi đi hiện là nh920211@gmail.com)
-            var senderEmail = _configuration["EmailSettings:SenderEmail"]; 
-            
-            // Key Brevo (Password)
-            var appPassword = _configuration["EmailSettings:AppPassword"]; 
-            
-            // Host và Port
-            var smtpHost = "smtp-relay.brevo.com"; 
-            var smtpPort = 2525;
-            var loginLink = "https://energy-contract-system-six.vercel.app"; 
-
-            // 👇 THÊM BIẾN NÀY ĐỂ ĐĂNG NHẬP (Lấy từ ảnh cấu hình Brevo của bạn)
-            // Đây là chìa khóa để Brevo không chặn bạn nữa
-            var smtpLoginUser = "9e501d001@smtp-brevo.com";
-
-            _logger.LogInformation($"[CONFIG CHECK] Sender (From): {senderEmail}");
-            _logger.LogInformation($"[CONFIG CHECK] Login User: {smtpLoginUser}");
-
-            if (string.IsNullOrEmpty(appPassword) || string.IsNullOrEmpty(senderEmail))
-            {
-                throw new Exception("❌ Cấu hình Email hoặc Password đang bị TRỐNG trên Render!");
-            }
-
-            // 2. Tạo nội dung Email
-            var message = new MimeMessage();
-            // 👇 Ở ĐÂY VẪN DÙNG senderEmail NHƯ BẠN MUỐN (Để khách thấy mail uy tín)
-            message.From.Add(new MailboxAddress(senderName, senderEmail));
-            message.To.Add(new MailboxAddress(msg.FullName, msg.Email));
-            message.Subject = "Chào mừng bạn đến với Energy System! 🎉";
-
-            var bodyBuilder = new BodyBuilder();
-            bodyBuilder.HtmlBody = $@"
+            // --- BẮT ĐẦU HTML TEMPLATE ---
+            // Lưu ý: Trong C#, khi dùng $@"", muốn viết CSS { } thì phải nhân đôi thành {{ }}
+            var htmlContent = $@"
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
                     body {{ font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; }}
-                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }}
                     .header {{ background-color: #4A90E2; color: #ffffff; padding: 20px; text-align: center; }}
                     .content {{ padding: 20px; color: #333333; line-height: 1.6; }}
                     .footer {{ background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 12px; color: #777; }}
-                    .btn {{ display: inline-block; background-color: #4A90E2; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }}
+                    .btn {{ display: inline-block; background-color: #4A90E2; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }}
+                    .btn:hover {{ background-color: #357ABD; }}
                 </style>
             </head>
             <body>
@@ -84,37 +53,29 @@ public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
                         <div style='text-align: center;'>
                             <a href='{loginLink}' class='btn' style='color: #ffffff;'>Đăng Nhập Ngay</a>
                         </div>
+                        <br/>
+                        <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
                     </div>
                     <div class='footer'>
-                        <p>&copy; 2024 Energy System. All rights reserved.</p>
+                        <p>&copy; {DateTime.Now.Year} Energy System. All rights reserved.</p>
+                        <p>Đây là email tự động, vui lòng không trả lời.</p>
                     </div>
                 </div>
             </body>
             </html>";
+            // --- KẾT THÚC HTML TEMPLATE ---
 
-            message.Body = bodyBuilder.ToMessageBody();
-
-            // 3. Gửi Mail
-            using var client = new SmtpClient();
-            client.Timeout = 10000;
-
-            _logger.LogInformation($"[CONNECT] {smtpHost}:{smtpPort}");
-            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.Auto);
-
-            _logger.LogInformation($"[AUTH] Đang đăng nhập bằng ID: {smtpLoginUser}...");
-            
-            // 🔴 SỬA QUAN TRỌNG NHẤT Ở ĐÂY:
-            // Dùng ID riêng (9e44aa...) để đăng nhập, KHÔNG dùng senderEmail
-            await client.AuthenticateAsync(smtpLoginUser, appPassword);
-
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
-
-            _logger.LogInformation($"✅ [SUCCESS] Đã gửi mail thành công từ {senderEmail} tới {msg.Email}");
+            // 2. Gọi Service gửi mail (Code gọn gàng, tách biệt logic)
+            await _emailSender.SendEmailAsync(
+                msg.FullName, 
+                msg.Email, 
+                "Chào mừng bạn đến với Energy System! 🎉", 
+                htmlContent
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"❌ [ERROR] Lỗi gửi mail: {ex.Message}");
+            _logger.LogError(ex, "❌ Lỗi xử lý gửi mail trong Consumer");
         }
     }
 }

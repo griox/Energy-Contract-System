@@ -13,7 +13,7 @@ builder.Services.AddMassTransit(x =>
 {
     // 1. Đăng ký tất cả các Consumer
     x.AddConsumer<ContractCreatedConsumer>();
-    x.AddConsumer<AccountCreatedConsumer>();
+    x.AddConsumer<AccountCreatedConsumer>();    
     x.AddConsumer<InvoiceReminderConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
