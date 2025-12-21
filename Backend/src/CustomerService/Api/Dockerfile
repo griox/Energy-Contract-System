@@ -48,4 +48,4 @@ RUN dotnet publish "Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "CustomerService.Api.dll"]
+ENTRYPOINT ["dotnet", "Api.dll"]

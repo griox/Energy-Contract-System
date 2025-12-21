@@ -45,4 +45,4 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 # LƯU Ý: Tên file DLL thường là tên Project. 
 # Nếu Project tên là "Api" thì là "Api.dll", nếu là "EmailService.Api" thì sửa lại.
-ENTRYPOINT ["dotnet", "EmailService.Api.dll"]
+ENTRYPOINT ["dotnet", "Api.dll"]

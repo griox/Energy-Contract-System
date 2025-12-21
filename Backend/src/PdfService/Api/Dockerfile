@@ -53,4 +53,4 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 # LƯU Ý: Kiểm tra tên file DLL. Nếu project tên là PdfService.Api thì giữ nguyên dòng dưới.
-ENTRYPOINT ["dotnet", "PdfService.Api.dll"]
+ENTRYPOINT ["dotnet", "Api.dll"]
