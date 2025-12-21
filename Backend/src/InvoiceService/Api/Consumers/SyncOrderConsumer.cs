@@ -3,20 +3,9 @@ using MassTransit;
 using Shared.Events; // Giả sử chứa OrderCreatedEvent
 using Api.Models;
 using Api.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Consumers;
-
-// Event này phải được định nghĩa trong Shared.Events
-// public class OrderCreatedEvent { 
-//     public int Id { get; set; }
-//     public string ContractNumber { get; set; }
-//     public string Email { get; set; } // Order Service phải Join Contract để lấy cái này gửi sang
-//     public string FullName { get; set; }
-//     public DateTime StartDate { get; set; }
-//     public DateTime EndDate { get; set; }
-//     public decimal TopupFee { get; set; }
-// }
-
 public class SyncOrderConsumer : IConsumer<OrderCreatedEvent>
 {
     private readonly InvoiceDbContext _context;
@@ -31,8 +20,19 @@ public class SyncOrderConsumer : IConsumer<OrderCreatedEvent>
     public async Task Consume(ConsumeContext<OrderCreatedEvent> context)
     {
         var msg = context.Message;
-        _logger.LogInformation($"Đồng bộ Order {msg.Id} cho User {msg.Email}");
 
+        // 1. KIỂM TRA TRÙNG LẶP (QUAN TRỌNG)
+        // Nếu đã có hóa đơn cho Order này rồi thì bỏ qua
+        var exists = await _context.InvoiceOrders
+            .AnyAsync(x => x.OriginalOrderId == msg.Id);
+
+        if (exists)
+        {
+            _logger.LogWarning($"Order {msg.Id} đã tồn tại trong InvoiceService. Bỏ qua.");
+            return;
+        }
+
+        // 2. Tạo mới
         var invoiceOrder = new InvoiceOrder
         {
             OriginalOrderId = msg.Id,
@@ -48,5 +48,7 @@ public class SyncOrderConsumer : IConsumer<OrderCreatedEvent>
 
         _context.InvoiceOrders.Add(invoiceOrder);
         await _context.SaveChangesAsync();
+        
+        _logger.LogInformation($"Đã đồng bộ Order {msg.Id} thành công.");
     }
 }

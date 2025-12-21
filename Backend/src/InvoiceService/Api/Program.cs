@@ -2,72 +2,89 @@ using Api.Data;
 using Quartz;
 using MassTransit;
 using Api.Jobs;
-using Api.Data;
+using Api.Consumers; // Nhớ namespace này
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Shared.Logging;
-
-// ... imports khác
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. Logging
 builder.Host.ConfigureSerilog("InvoiceService");
-// 1. Cấu hình Quartz
+
+// 2. DB Context
+builder.Services.AddDbContext<InvoiceDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 3. Cấu hình Quartz (Job định kỳ)
 builder.Services.AddQuartz(q =>
 {
-    // Đăng ký Job
     var jobKey = new JobKey("DailyInvoiceJob");
     q.AddJob<DailyInvoiceJob>(opts => opts.WithIdentity(jobKey));
 
-    // Đăng ký Trigger (Chạy lúc 8:00 sáng mỗi ngày)
-    // Trong phần cấu hình Quartz
     q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity("DailyInvoiceJob-trigger")
-            .WithCronSchedule("0 0 10 * * ?", x => x
-                .WithMisfireHandlingInstructionFireAndProceed()) 
+        .ForJob(jobKey)
+        .WithIdentity("DailyInvoiceJob-trigger")
+        // 👇 LOGIC GIỜ GIẤC:
+        // Server thường chạy UTC. Muốn 8:00 sáng VN (UTC+7) thì set 1:00 sáng UTC.
+        // Cron: "Giây Phút Giờ Ngày Tháng Thứ"
+        .WithCronSchedule("0 0 3 * * ?", x => x 
+            .WithMisfireHandlingInstructionFireAndProceed()) 
     ); 
 });
-
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
-// 2. Cấu hình MassTransit
-// ...
+// 4. Cấu hình MassTransit (RabbitMQ)
 builder.Services.AddMassTransit(x =>
 {
-    // Đổi sang Consumer mới
-    x.AddConsumer<Api.Consumers.SyncOrderConsumer>();
+    // Đăng ký Consumer
+    x.AddConsumer<SyncOrderConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
         var rabbitMqUrl = builder.Configuration["RabbitMQ:Host"];
-        if (string.IsNullOrEmpty(rabbitMqUrl))
-        {
-            rabbitMqUrl = "amqp://guest:guest@localhost:5672";
-        }
+        if (string.IsNullOrEmpty(rabbitMqUrl)) rabbitMqUrl = "amqp://guest:guest@localhost:5672";
         
-        // 👇 SỬA Ở ĐÂY: Bọc nó vào new Uri()
         cfg.Host(new Uri(rabbitMqUrl));
 
-        // Queue nhận tin tạo Order
+        // 👇 CẤU HÌNH RETRY (QUAN TRỌNG):
+        // Nếu lỗi DB, thử lại 3 lần, mỗi lần cách nhau 5 giây
+        cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
+
         cfg.ReceiveEndpoint("invoice-sync-order", e =>
         {
-            e.ConfigureConsumer<Api.Consumers.SyncOrderConsumer>(context);
+            e.ConfigureConsumer<SyncOrderConsumer>(context);
         });
     });
 });
-// ...
 
-// ... Đăng ký DB, Controller ...
-// 1. Đăng ký InvoiceDbContext
-builder.Services.AddDbContext<InvoiceDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Thêm Health Check cho Render
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
-// 2. Auto Migration (Tự động tạo bảng khi chạy)
-using (var scope = app.Services.CreateScope())
+// 5. Auto Migration an toàn
+try 
 {
-    var db = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
-    db.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<InvoiceDbContext>();
+        // Kiểm tra nếu có migration chưa chạy thì mới chạy
+        if (db.Database.GetPendingMigrations().Any())
+        {
+            db.Database.Migrate();
+        }
+    }
 }
+catch (Exception ex)
+{
+    // Log lỗi nhưng không crash app ngay lập tức nếu DB chưa sẵn sàng (để HealthCheck còn chạy)
+    Console.WriteLine($"Migration Failed: {ex.Message}");
+}
+
+// Endpoint Health Check (Quan trọng cho Render/K8s)
+app.MapHealthChecks("/health");
+
+app.MapGet("/", () => "Invoice Service is running!");
 
 app.Run();

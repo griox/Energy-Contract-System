@@ -2,7 +2,6 @@ using MassTransit;
 using Shared.Events;
 // Import các namespace chứa Consumer của bạn
 using Api.Consumers; 
-using EmailService.Api.Consumers;
 using Shared.Logging;
 
 var builder = WebApplication.CreateBuilder(args);

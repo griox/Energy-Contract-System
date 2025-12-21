@@ -4,7 +4,7 @@ using MailKit.Net.Smtp;
 using MimeKit;
 using MailKit.Security; 
 
-namespace EmailService.Api.Consumers;
+namespace Api.Consumers;
 
 public class AccountCreatedConsumer : IConsumer<AccountCreatedEvent>
 {
