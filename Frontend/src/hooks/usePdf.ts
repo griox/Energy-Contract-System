@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ContractPdfApi, TemplateApi, } from "@/services/pdfService/pdfService";
 import toast from "react-hot-toast";
 import type { CreateTemplateParams, UpdateTemplateParams } from "@/types/pdf";
-import { useTranslation } from "node_modules/react-i18next";
+import { useTranslation } from "react-i18next";
+
 
 // ==================== PDF GENERATION HOOKS ====================
 

@@ -228,7 +228,9 @@ namespace AuthService.Tests
             {
                 Username = "admin",
                 Password = "password",
-                Email = "admin@test.com"
+                Email = "admin@test.com",
+                FirstName = "Admin", 
+                LastName = "System"
             };
 
             // Act

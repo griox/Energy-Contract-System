@@ -17,6 +17,7 @@
 .env.production
 appsettings.*.json
 !appsettings.json
+!appsettings.tests.json
 
 # Bỏ qua file log, file tạm
 *.log
