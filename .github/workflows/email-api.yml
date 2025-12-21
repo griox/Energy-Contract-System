@@ -5,6 +5,8 @@ on:
     branches: [ "main" ]
     paths:
       - 'Backend/src/EmailService/**'
+      - 'Backend/tests/EmailService.Test/**' # 👈 Thêm: Lắng nghe folder test
+      - 'Backend/Shared.Tests/**'      # 👈 Thêm: Lắng nghe folder Shared
   workflow_dispatch:
 
 jobs:
@@ -15,6 +17,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- BƯỚC 1: Cài đặt .NET 8 ---
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # --- BƯỚC 2: Chạy Unit Test ---
+      - name: Run Unit Tests
+        run: |
+          cd Backend
+          # Chạy test cho EmailService trước khi build
+          dotnet test tests/EmailService.Test/EmailService.Test.csproj --verbosity normal
+
+      # --- BƯỚC 3: Build & Push Docker (Chỉ chạy khi Test Pass) ---
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

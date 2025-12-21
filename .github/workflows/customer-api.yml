@@ -5,6 +5,8 @@ on:
     branches: [ "main" ]
     paths:
       - 'Backend/src/CustomerService/**'
+      - 'Backend/tests/CustomerService.Test/**' # 👈 Thêm: Lắng nghe thay đổi folder test
+      - 'Backend/Shared.Tests/**'         # 👈 Thêm: Lắng nghe thay đổi folder Shared
   workflow_dispatch:
 
 jobs:
@@ -15,6 +17,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- BƯỚC 1: Cài đặt môi trường .NET ---
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # --- BƯỚC 2: Chạy Unit Test ---
+      - name: Run Unit Tests
+        run: |
+          cd Backend
+          dotnet test tests/CustomerService.Test/CustomerService.Test.csproj --verbosity normal
+
+      # --- BƯỚC 3: Nếu Test Xanh (Pass) thì mới Build Docker ---
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

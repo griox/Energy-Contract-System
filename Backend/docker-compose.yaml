@@ -24,26 +24,7 @@ services:
     ports:
       - "5436:5432"
     volumes:
-      - postgres_history_data:/var/lib/postgresql/data
-
-  contract-history-api:
-    build:
-      context: .
-      dockerfile: ./src/ContractHistoryService/Api/Dockerfile
-    image: huyngoinfo/energy-contract-history-api:latest
-    container_name: energy_contract_history_api
-    restart: always
-    depends_on:
-      - postgres-history
-      - rabbitmq
-    env_file:
-      - .env
-    ports:
-      - "5005:8080"
-    environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres-history;Port=5432;Database=ContractHistoryDb;Username=${POSTGRES_USER_HISTORY:-postgres_history};Password=${POSTGRES_PASSWORD_HISTORY:-admin_history}
-      - ASPNETCORE_ENVIRONMENT=Development
-  
+      - postgres_history_data:/var/lib/postgresql/data  
       
   postgres-invoice:
     image: postgres:16-alpine
@@ -121,6 +102,9 @@ services:
 
   customer-api:
     image: huyngoinfo/energy-customer-api:latest
+    build:
+      context: .
+      dockerfile: src/CustomerService/Api/Dockerfile
     container_name: energy_customer_api
     restart: always
     depends_on:
@@ -140,6 +124,9 @@ services:
 
   pdf-service:
     image: huyngoinfo/energy-pdf-service:latest
+    build:
+      context: .
+      dockerfile: src/PdfService/Api/Dockerfile
     container_name: energy_pdf_service
     restart: always
     depends_on:
@@ -164,6 +151,9 @@ services:
   
   auth-service:
     image: huyngoinfo/energy-auth-service:latest
+    build:
+      context: .
+      dockerfile: src/AuthService/Api/Dockerfile
     container_name: energy_auth_service
     restart: always
     depends_on:
@@ -181,7 +171,6 @@ services:
 
   email-api:
     image: huyngoinfo/energy-email-api:latest
-    container_name: energy_email_api
     build:
       context: .
       dockerfile: src/EmailService/Api/Dockerfile

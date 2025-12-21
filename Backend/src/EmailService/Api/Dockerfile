@@ -10,24 +10,31 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# 👇 QUAN TRỌNG: Copy file csproj từ đường dẫn gốc
-COPY ["Backend/src/EmailService/Api/Api.csproj", "Backend/src/EmailService/Api/"]
+# --- BƯỚC 1: COPY FILE CSPROJ (XÓA Backend/) ---
 
-COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
+# Copy Shared.Logging (để restore được)
+COPY ["Shared.Logging/Shared.Logging.csproj", "Shared.Logging/"]
+
+# Copy EmailService Api
+COPY ["src/EmailService/Api/Api.csproj", "src/EmailService/Api/"]
 
 # Restore
-RUN dotnet restore "Backend/src/EmailService/Api/Api.csproj"
+RUN dotnet restore "src/EmailService/Api/Api.csproj"
 
-# Copy toàn bộ code
-COPY . .
+# --- BƯỚC 2: COPY SOURCE CODE (XÓA Backend/) ---
 
-# 👇 Chuyển Workdir vào đúng thư mục chứa code EmailService
-WORKDIR "/src/Backend/src/EmailService/Api"
+# Copy toàn bộ code Shared.Logging
+COPY ["Shared.Logging/", "Shared.Logging/"]
 
-# Build
+# Copy toàn bộ code EmailService
+COPY ["src/EmailService/", "src/EmailService/"]
+
+# --- BƯỚC 3: BUILD & PUBLISH ---
+# Chuyển vào thư mục chứa file csproj
+WORKDIR "/src/src/EmailService/Api"
+
 RUN dotnet build "Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# 3. Publish
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
@@ -36,4 +43,6 @@ RUN dotnet publish "Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Api.dll"]
+# LƯU Ý: Tên file DLL thường là tên Project. 
+# Nếu Project tên là "Api" thì là "Api.dll", nếu là "EmailService.Api" thì sửa lại.
+ENTRYPOINT ["dotnet", "EmailService.Api.dll"]

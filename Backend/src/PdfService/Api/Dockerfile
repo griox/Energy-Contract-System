@@ -1,6 +1,6 @@
 ﻿# 1. Base Image (Runtime)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-# Cài đặt các thư viện cần thiết cho xử lý Font/PDF (nếu cần)
+# Cài đặt các thư viện cần thiết cho xử lý Font/PDF (Chromium)
 USER root
 WORKDIR /app
 EXPOSE 8080
@@ -19,24 +19,31 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# 👇 QUAN TRỌNG: Sửa đường dẫn COPY cho đúng cấu trúc thư mục
-COPY ["Backend/src/PdfService/Api/Api.csproj", "Backend/src/PdfService/Api/"]
-COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
+# --- BƯỚC 1: COPY FILE CSPROJ (ĐÃ SỬA: XÓA Backend/) ---
 
+# Copy Shared.Logging
+COPY ["Shared.Logging/Shared.Logging.csproj", "Shared.Logging/"]
+
+# Copy PdfService Api
+COPY ["src/PdfService/Api/Api.csproj", "src/PdfService/Api/"]
 
 # Restore
-RUN dotnet restore "Backend/src/PdfService/Api/Api.csproj"
+RUN dotnet restore "src/PdfService/Api/Api.csproj"
 
-# Copy toàn bộ code
-COPY . .
+# --- BƯỚC 2: COPY SOURCE CODE (ĐÃ SỬA: XÓA Backend/) ---
 
-# 👇 Chuyển Workdir vào đúng thư mục chứa code PdfService
-WORKDIR "/src/Backend/src/PdfService/Api"
+# Copy code Shared.Logging
+COPY ["Shared.Logging/", "Shared.Logging/"]
 
-# Build
+# Copy code PdfService
+COPY ["src/PdfService/", "src/PdfService/"]
+
+# --- BƯỚC 3: BUILD & PUBLISH ---
+# Chuyển vào thư mục chứa file csproj
+WORKDIR "/src/src/PdfService/Api"
+
 RUN dotnet build "Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# 3. Publish
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
@@ -45,4 +52,5 @@ RUN dotnet publish "Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Api.dll"]
+# LƯU Ý: Kiểm tra tên file DLL. Nếu project tên là PdfService.Api thì giữ nguyên dòng dưới.
+ENTRYPOINT ["dotnet", "PdfService.Api.dll"]

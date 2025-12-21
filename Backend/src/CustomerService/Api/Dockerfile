@@ -11,30 +11,32 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # --- BƯỚC 1: COPY FILE CSPROJ ---
+# Lưu ý: Đã xóa "Backend/" ở đầu đường dẫn source và destination
 
-# 👇 MỚI THÊM: Copy file csproj của Shared.Logging trước
-# Dựa trên ảnh của bạn: Backend -> Shared.Logging -> Shared.Logging.csproj
-COPY ["Backend/Shared.Logging/Shared.Logging.csproj", "Backend/Shared.Logging/"]
+# Copy file csproj của Shared.Logging
+COPY ["Shared.Logging/Shared.Logging.csproj", "Shared.Logging/"]
 
 # Copy các file csproj của CustomerService
-COPY ["Backend/src/CustomerService/Api/Api.csproj", "Backend/src/CustomerService/Api/"]
-COPY ["Backend/src/CustomerService/Application/Application.csproj", "Backend/src/CustomerService/Application/"]
-COPY ["Backend/src/CustomerService/Domain/Domain.csproj", "Backend/src/CustomerService/Domain/"]
-COPY ["Backend/src/CustomerService/Infrastructure/Infrastructure.csproj", "Backend/src/CustomerService/Infrastructure/"]
+COPY ["src/CustomerService/Api/Api.csproj", "src/CustomerService/Api/"]
+COPY ["src/CustomerService/Application/Application.csproj", "src/CustomerService/Application/"]
+COPY ["src/CustomerService/Domain/Domain.csproj", "src/CustomerService/Domain/"]
+COPY ["src/CustomerService/Infrastructure/Infrastructure.csproj", "src/CustomerService/Infrastructure/"]
 
-# Restore (Lúc này đã có đủ csproj của cả Service và Shared Library để restore)
-RUN dotnet restore "Backend/src/CustomerService/Api/Api.csproj"
+# Restore
+RUN dotnet restore "src/CustomerService/Api/Api.csproj"
 
 # --- BƯỚC 2: COPY SOURCE CODE ---
 
-# 👇 MỚI THÊM: Copy toàn bộ code của thư viện Shared vào
-COPY ["Backend/Shared.Logging/", "Backend/Shared.Logging/"]
+# Copy toàn bộ code của thư viện Shared
+COPY ["Shared.Logging/", "Shared.Logging/"]
 
 # Copy toàn bộ code của CustomerService
-COPY ["Backend/src/CustomerService/", "Backend/src/CustomerService/"]
+COPY ["src/CustomerService/", "src/CustomerService/"]
 
 # --- BƯỚC 3: BUILD & PUBLISH ---
-WORKDIR "/src/Backend/src/CustomerService/Api"
+# Lưu ý quan trọng: Vì ta copy vào folder "src" bên trong WORKDIR /src 
+# nên đường dẫn thực tế bây giờ là /src/src/...
+WORKDIR "/src/src/CustomerService/Api"
 
 RUN dotnet build "Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 

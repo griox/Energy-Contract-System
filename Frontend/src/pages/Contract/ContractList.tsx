@@ -53,12 +53,131 @@ import ViewPdfDialog from "./components/ViewPdfDialog";
 import { useContracts } from "@/hooks/useContracts";
 import { useResellers } from "@/hooks/useResellers";
 import { useGeneratePdf } from "@/hooks/usePdf";
-import { useDeleteContract } from "@/hooks/useContracts"; // Assuming you have this
+import { useDeleteContract } from "@/hooks/useContracts"; 
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getUserRole } from "@/lib/authUtils";
 import toast from "react-hot-toast";
 
-const SIDEBAR_OFFSET = 240; // Matches OrderList layout
+const SIDEBAR_OFFSET = 240;
+
+// =================================================================
+// 1. TÁCH COMPONENT CON RA KHỎI COMPONENT CHA
+// Để tránh việc React unmount/remount lại component này mỗi khi state cha thay đổi
+// =================================================================
+
+interface MobileContractCardProps {
+  c: any;
+  isAdMin: boolean;
+  onPdfClick: (c: any) => void;
+  onEdit: (id: number) => void;
+  onDelete: (id: number) => void;
+}
+
+const MobileContractCard = ({ c, isAdMin, onPdfClick, onEdit, onDelete }: MobileContractCardProps) => {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
+
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 3,
+        borderColor: alpha(theme.palette.divider, 0.6),
+        bgcolor: "background.paper",
+        overflow: "hidden",
+      }}
+    >
+      <CardContent sx={{ p: 2 }}>
+        {/* Top Row: Number & Actions */}
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              fontWeight={900}
+              sx={{ color: "primary.main", cursor: "pointer", textDecoration: "underline" }}
+              onClick={() => navigate(`/contracts/${c.id}/detail`)}
+              noWrap
+            >
+              {c.contractNumber}
+            </Typography>
+            <Typography fontWeight={800} sx={{ mt: 0.25 }} noWrap>
+              {c.firstName} {c.lastName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {c.email}
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+            {/* PDF ICON */}
+            <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
+              <IconButton
+                size="small"
+                onClick={() => onPdfClick(c)}
+                color={hasPdf ? "success" : "default"}
+                sx={{ 
+                  border: `1px solid ${hasPdf ? theme.palette.success.light : alpha(theme.palette.divider, 0.5)}`,
+                  bgcolor: hasPdf ? alpha(theme.palette.success.main, 0.1) : "transparent"
+                }}
+              >
+                {hasPdf ? <FiCheckCircle size={18} /> : <FiFileText size={18} />}
+              </IconButton>
+            </Tooltip>
+
+            {isAdMin && (
+              <>
+                <IconButton size="small" color="primary" onClick={() => onEdit(c.id)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                <IconButton size="small" color="error" onClick={() => onDelete(c.id)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </>
+            )}
+          </Stack>
+        </Stack>
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Details */}
+        <Stack spacing={1}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2" color="text.secondary">
+              {t("Reseller")}
+            </Typography>
+            <Typography variant="body2" fontWeight={700}>
+              <ResellerCell resellerId={c.resellerId} />
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2" color="text.secondary">
+              {t("contract.start")}
+            </Typography>
+            <Typography variant="body2" fontWeight={800}>
+              {c.startDate ? new Date(c.startDate).toLocaleDateString() : "-"}
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2" color="text.secondary">
+              {t("contract.end")}
+            </Typography>
+            <Typography variant="body2" fontWeight={800}>
+              {c.endDate ? new Date(c.endDate).toLocaleDateString() : "-"}
+            </Typography>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+};
+
+// =================================================================
+// 2. MAIN COMPONENT
+// =================================================================
 
 export default function ContractList() {
   const theme = useTheme();
@@ -68,7 +187,7 @@ export default function ContractList() {
   const { t } = useTranslation();
 
   // ==========================
-  // STATE: LOGIC RETAINED
+  // STATES
   // ==========================
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
@@ -77,7 +196,6 @@ export default function ContractList() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // PDF Logic States
   const [genPdfOpen, setGenPdfOpen] = useState(false);
   const [viewPdfOpen, setViewPdfOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<any>(null);
@@ -90,7 +208,7 @@ export default function ContractList() {
   const [sortBy, setSortBy] = useState<"customerName" | "email">("customerName");
   const [sortDesc, setSortDesc] = useState(false);
   const [page, setPage] = useState(1);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false); // UI state from OrderList
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const { accessToken } = useAuthStore();
   const role = getUserRole(accessToken);
@@ -99,7 +217,7 @@ export default function ContractList() {
   const PAGE_SIZE = 10;
 
   // ==========================
-  // API HOOKS
+  // QUERIES & MUTATIONS
   // ==========================
   const resellerQuery = useResellers({ pageNumber: 1, pageSize: 999 });
 
@@ -122,11 +240,10 @@ export default function ContractList() {
   const canNext = page < totalPages;
 
   const generatePdfMutation = useGeneratePdf();
-  // Assuming a delete hook exists similar to OrderList, otherwise use your existing logic
   const deleteMutation = useDeleteContract ? useDeleteContract() : { mutate: () => {}, isPending: false };
 
   // ==========================
-  // STYLES
+  // STYLES & MEMO
   // ==========================
   const pageBg = "background.default";
   const cardBg = "background.paper";
@@ -145,7 +262,7 @@ export default function ContractList() {
   );
 
   // ==========================
-  // HANDLERS (LOGIC RETAINED)
+  // HANDLERS
   // ==========================
   const handlePdfIconClick = (c: any) => {
     setSelectedContract(c);
@@ -227,12 +344,15 @@ export default function ContractList() {
   };
 
   const confirmDelete = () => {
-    // Implementing delete logic matching OrderList pattern
     if (!deleteId) return;
     deleteMutation.mutate(deleteId, {
       onSuccess: () => {
         setDeleteOpen(false);
         contractQuery.refetch();
+        toast.success(t("Deleted successfully"));
+      },
+      onError: () => {
+        toast.error(t("Delete failed"));
       }
     });
   };
@@ -241,103 +361,6 @@ export default function ContractList() {
     const active = sortBy === field;
     if (active) return sortDesc ? <FiChevronDown size={14} /> : <FiChevronUp size={14} />;
     return <FiChevronDown size={14} style={{ opacity: 0.25 }} />;
-  };
-
-  // ==========================
-  // MOBILE CARD ITEM
-  // ==========================
-  const MobileContractCard = ({ c }: { c: any }) => {
-    const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
-    
-    return (
-      <Card
-        variant="outlined"
-        sx={{
-          borderRadius: 3,
-          borderColor: alpha(theme.palette.divider, 0.6),
-          bgcolor: "background.paper",
-          overflow: "hidden",
-        }}
-      >
-        <CardContent sx={{ p: 2 }}>
-          {/* Top Row: Number & Actions */}
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                fontWeight={900}
-                sx={{ color: "primary.main", cursor: "pointer", textDecoration: "underline" }}
-                onClick={() => navigate(`/contracts/${c.id}/detail`)}
-                noWrap
-              >
-                {c.contractNumber}
-              </Typography>
-              <Typography fontWeight={800} sx={{ mt: 0.25 }} noWrap>
-                {c.firstName} {c.lastName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" noWrap>
-                {c.email}
-              </Typography>
-            </Box>
-
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
-               {/* PDF ICON LOGIC - RETAINED */}
-              <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
-                <IconButton
-                  size="small"
-                  onClick={() => handlePdfIconClick(c)}
-                  color={hasPdf ? "success" : "default"}
-                >
-                  {hasPdf ? <FiCheckCircle size={18} /> : <FiFileText size={18} />}
-                </IconButton>
-              </Tooltip>
-
-              {isAdMin && (
-                <>
-                  <IconButton size="small" color="primary" onClick={() => openEdit(c.id)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={() => openDelete(c.id)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </>
-              )}
-            </Stack>
-          </Stack>
-
-          <Divider sx={{ my: 1.5 }} />
-
-          {/* Details */}
-          <Stack spacing={1}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="body2" color="text.secondary">
-                {t("Reseller")}
-              </Typography>
-              <Typography variant="body2" fontWeight={700}>
-                <ResellerCell resellerId={c.resellerId} />
-              </Typography>
-            </Stack>
-
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="body2" color="text.secondary">
-                {t("contract.start")}
-              </Typography>
-              <Typography variant="body2" fontWeight={800}>
-                {c.startDate ? new Date(c.startDate).toLocaleDateString() : "-"}
-              </Typography>
-            </Stack>
-
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="body2" color="text.secondary">
-                {t("contract.end")}
-              </Typography>
-              <Typography variant="body2" fontWeight={800}>
-                 {c.endDate ? new Date(c.endDate).toLocaleDateString() : "-"}
-              </Typography>
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-    );
   };
 
   // ==========================
@@ -613,7 +636,17 @@ export default function ContractList() {
                 <Typography fontWeight={900}>{t("No contracts found")}</Typography>
               </Card>
             ) : (
-                data.map((c: any) => <MobileContractCard key={c.id} c={c} />)
+                // SỬ DỤNG COMPONENT ĐÃ TÁCH
+                data.map((c: any) => (
+                  <MobileContractCard 
+                    key={c.id} 
+                    c={c} 
+                    isAdMin={isAdMin}
+                    onPdfClick={handlePdfIconClick}
+                    onEdit={openEdit}
+                    onDelete={openDelete}
+                  />
+                ))
             )}
 
              {/* MOBILE PAGINATION */}
@@ -715,12 +748,15 @@ export default function ContractList() {
 
                             <TableCell align="right">
                                 <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                                    {/* PDF ICON LOGIC - RETAINED */}
                                     <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
                                         <IconButton
                                             size="small"
                                             onClick={() => handlePdfIconClick(c)}
                                             color={hasPdf ? "success" : "default"}
+                                            sx={{ 
+                                                border: `1px solid ${hasPdf ? theme.palette.success.light : alpha(theme.palette.divider, 0.5)}`,
+                                                bgcolor: hasPdf ? alpha(theme.palette.success.main, 0.1) : "transparent"
+                                            }}
                                         >
                                             {hasPdf ? <FiCheckCircle size={18} /> : <FiFileText size={18} />}
                                         </IconButton>
@@ -778,7 +814,7 @@ export default function ContractList() {
           </Card>
         )}
 
-        {/* --- DIALOGS (RETAINED) --- */}
+        {/* --- DIALOGS --- */}
         <ContractFormDrawer
           open={drawerOpen}
           mode={drawerMode}
@@ -790,8 +826,6 @@ export default function ContractList() {
           }}
         />
 
-        {/* Delete Dialog - Adapted to MUI Dialog like OrderList used if you have a component, 
-            or using your existing ContractDelete component */}
         {deleteOpen && (
              <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="sm">
                 <DialogTitle sx={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 1 }}>
