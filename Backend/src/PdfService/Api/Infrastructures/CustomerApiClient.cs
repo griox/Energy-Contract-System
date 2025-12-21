@@ -19,7 +19,7 @@ public class CustomerApiClient : ICustomerApiClient
         _httpClient = httpClient;
         _logger = logger;
         // Lấy URL của Customer Service từ cấu hình (vd: http://customer-api:8080)
-        _customerApiUrl = configuration["CustomerServiceUrl"] ?? "http://customer-api:8080";
+        _customerApiUrl = configuration["CustomerServiceUrl"] ?? "https://customerservice-90jy.onrender.com";
     }
 
     public async Task UpdateContractPdfUrlAsync(string contractNumber, string pdfUrl)
