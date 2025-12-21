@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+
 import {
   Box,
   Button,
@@ -9,175 +9,51 @@ import {
   Stack,
   IconButton,
   MenuItem,
+  Paper,
+  InputAdornment,
+  Tooltip,
+  useTheme,
+  useMediaQuery,
   Card,
   CardContent,
   Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   CircularProgress,
-  useTheme,
-  useMediaQuery,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Tooltip,
-  InputAdornment,
-  Collapse,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { alpha } from "@mui/material/styles";
 
-// Icons
-import SearchIcon from "@mui/icons-material/Search";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import DeleteIcon from "@mui/icons-material/DeleteOutlined";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import {
+  FiPlus,
+  FiEdit,
+  FiTrash2,
+  FiFileText,
+  FiSearch,
+  FiCheckCircle,
   FiChevronDown,
   FiChevronUp,
-  FiFileText,
-  FiCheckCircle,
 } from "react-icons/fi";
 
-// Components & Hooks
 import NavMenu from "@/components/NavMenu/NavMenu";
-import ResellerCell from "./components/ResellerCell";
-import ContractFormDrawer from "./ContractFormDrawer";
-import GeneratePdfDialog from "./components/GeneratePdfDialog";
-import ViewPdfDialog from "./components/ViewPdfDialog";
 
 import { useContracts } from "@/hooks/useContracts";
 import { useResellers } from "@/hooks/useResellers";
 import { useGeneratePdf } from "@/hooks/usePdf";
-import { useDeleteContract } from "@/hooks/useContracts"; 
-import { useAuthStore } from "@/stores/useAuthStore";
-import { getUserRole } from "@/lib/authUtils";
+
 import toast from "react-hot-toast";
 
-const SIDEBAR_OFFSET = 240;
+import ContractFormDrawer from "./ContractFormDrawer";
+import ContractDelete from "./ContractDelete";
+import ResellerCell from "./components/ResellerCell";
+import GeneratePdfDialog from "./components/GeneratePdfDialog";
+import ViewPdfDialog from "./components/ViewPdfDialog";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { getUserRole } from "@/lib/authUtils";
+import { useNavigate } from "react-router-dom";
 
-// =================================================================
-// 1. TÁCH COMPONENT CON RA KHỎI COMPONENT CHA
-// Để tránh việc React unmount/remount lại component này mỗi khi state cha thay đổi
-// =================================================================
-
-interface MobileContractCardProps {
-  c: any;
-  isAdMin: boolean;
-  onPdfClick: (c: any) => void;
-  onEdit: (id: number) => void;
-  onDelete: (id: number) => void;
-}
-
-const MobileContractCard = ({ c, isAdMin, onPdfClick, onEdit, onDelete }: MobileContractCardProps) => {
-  const theme = useTheme();
-  const navigate = useNavigate();
-  const { t } = useTranslation();
-
-  const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 3,
-        borderColor: alpha(theme.palette.divider, 0.6),
-        bgcolor: "background.paper",
-        overflow: "hidden",
-      }}
-    >
-      <CardContent sx={{ p: 2 }}>
-        {/* Top Row: Number & Actions */}
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography
-              fontWeight={900}
-              sx={{ color: "primary.main", cursor: "pointer", textDecoration: "underline" }}
-              onClick={() => navigate(`/contracts/${c.id}/detail`)}
-              noWrap
-            >
-              {c.contractNumber}
-            </Typography>
-            <Typography fontWeight={800} sx={{ mt: 0.25 }} noWrap>
-              {c.firstName} {c.lastName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {c.email}
-            </Typography>
-          </Box>
-
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
-            {/* PDF ICON */}
-            <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
-              <IconButton
-                size="small"
-                onClick={() => onPdfClick(c)}
-                color={hasPdf ? "success" : "default"}
-                sx={{ 
-                  border: `1px solid ${hasPdf ? theme.palette.success.light : alpha(theme.palette.divider, 0.5)}`,
-                  bgcolor: hasPdf ? alpha(theme.palette.success.main, 0.1) : "transparent"
-                }}
-              >
-                {hasPdf ? <FiCheckCircle size={18} /> : <FiFileText size={18} />}
-              </IconButton>
-            </Tooltip>
-
-            {isAdMin && (
-              <>
-                <IconButton size="small" color="primary" onClick={() => onEdit(c.id)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton size="small" color="error" onClick={() => onDelete(c.id)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </>
-            )}
-          </Stack>
-        </Stack>
-
-        <Divider sx={{ my: 1.5 }} />
-
-        {/* Details */}
-        <Stack spacing={1}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="body2" color="text.secondary">
-              {t("Reseller")}
-            </Typography>
-            <Typography variant="body2" fontWeight={700}>
-              <ResellerCell resellerId={c.resellerId} />
-            </Typography>
-          </Stack>
-
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="body2" color="text.secondary">
-              {t("contract.start")}
-            </Typography>
-            <Typography variant="body2" fontWeight={800}>
-              {c.startDate ? new Date(c.startDate).toLocaleDateString() : "-"}
-            </Typography>
-          </Stack>
-
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="body2" color="text.secondary">
-              {t("contract.end")}
-            </Typography>
-            <Typography variant="body2" fontWeight={800}>
-              {c.endDate ? new Date(c.endDate).toLocaleDateString() : "-"}
-            </Typography>
-          </Stack>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-};
-
-// =================================================================
-// 2. MAIN COMPONENT
-// =================================================================
+const SIDEBAR_OFFSET = 260;
 
 export default function ContractList() {
   const theme = useTheme();
@@ -186,9 +62,7 @@ export default function ContractList() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { t } = useTranslation();
 
-  // ==========================
-  // STATES
-  // ==========================
+  // --- STATES ---
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [currentId, setCurrentId] = useState<number | null>(null);
@@ -208,7 +82,6 @@ export default function ContractList() {
   const [sortBy, setSortBy] = useState<"customerName" | "email">("customerName");
   const [sortDesc, setSortDesc] = useState(false);
   const [page, setPage] = useState(1);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const { accessToken } = useAuthStore();
   const role = getUserRole(accessToken);
@@ -216,9 +89,6 @@ export default function ContractList() {
 
   const PAGE_SIZE = 10;
 
-  // ==========================
-  // QUERIES & MUTATIONS
-  // ==========================
   const resellerQuery = useResellers({ pageNumber: 1, pageSize: 999 });
 
   const contractQuery = useContracts({
@@ -235,35 +105,22 @@ export default function ContractList() {
   const data = contractQuery.data?.items ?? [];
   const totalPages = contractQuery.data?.totalPages ?? 1;
   const totalCount = contractQuery.data?.totalCount ?? 0;
-  const shownCount = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + data.length;
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
 
   const generatePdfMutation = useGeneratePdf();
-  const deleteMutation = useDeleteContract ? useDeleteContract() : { mutate: () => {}, isPending: false };
 
-  // ==========================
-  // STYLES & MEMO
-  // ==========================
-  const pageBg = "background.default";
-  const cardBg = "background.paper";
-  const borderColor = alpha(theme.palette.divider, 0.8);
-  const headBg = isDark ? alpha(theme.palette.common.white, 0.06) : alpha(theme.palette.common.black, 0.04);
-  const rowHoverBg = alpha(theme.palette.action.hover, isDark ? 0.35 : 0.6);
+  // ===== STYLES =====
+  const borderColor = alpha(theme.palette.divider, isDark ? 0.35 : 0.8);
+  const softBorder = `1px solid ${alpha(theme.palette.divider, isDark ? 0.3 : 0.55)}`;
+  const paperShadow = isDark ? "none" : "0 2px 12px rgba(0,0,0,0.06)";
 
-  const headCellSx = useMemo(
-    () => ({
-      fontWeight: 800,
-      color: "text.primary",
-      userSelect: "none",
-      whiteSpace: "nowrap",
-    }),
-    []
-  );
+  const rowHoverBg = isDark
+    ? alpha(theme.palette.common.white, 0.08)
+    : alpha(theme.palette.common.black, 0.04);
 
-  // ==========================
-  // HANDLERS
-  // ==========================
+  const rowHoverShadow = `inset 0 0 0 1px ${alpha(theme.palette.divider, isDark ? 0.35 : 0.4)}`;
+  const iconHoverBg = alpha(theme.palette.action.hover, isDark ? 0.45 : 0.7);
+
+  // --- HANDLERS ---
   const handlePdfIconClick = (c: any) => {
     setSelectedContract(c);
     const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
@@ -343,112 +200,79 @@ export default function ContractList() {
     setDeleteOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (!deleteId) return;
-    deleteMutation.mutate(deleteId, {
-      onSuccess: () => {
-        setDeleteOpen(false);
-        contractQuery.refetch();
-        toast.success(t("Deleted successfully"));
-      },
-      onError: () => {
-        toast.error(t("Delete failed"));
-      }
-    });
-  };
+  const pageTitle = useMemo(() => t("contract.management"), [t]);
 
-  const renderSortIcon = (field: "customerName" | "email") => {
-    const active = sortBy === field;
-    if (active) return sortDesc ? <FiChevronDown size={14} /> : <FiChevronUp size={14} />;
-    return <FiChevronDown size={14} style={{ opacity: 0.25 }} />;
-  };
-
-  // ==========================
-  // RENDER
-  // ==========================
   return (
     <Box
       sx={{
         display: "flex",
         flexDirection: { xs: "column", md: "row" },
         minHeight: "100vh",
-        bgcolor: pageBg,
+        bgcolor: "background.default",
       }}
     >
       <NavMenu />
 
       <Box
         sx={{
-          ml: { xs: 0, md: `${SIDEBAR_OFFSET}px` },
-          p: { xs: 2, md: 4 },
+          flexGrow: 1,
           width: "100%",
-          minHeight: "100vh",
-          bgcolor: pageBg,
+          ml: { xs: 0, md: `${SIDEBAR_OFFSET}px` },
+          px: { xs: 2, sm: 3, md: 4 },
+          py: { xs: 2, md: 4 },
           color: "text.primary",
         }}
       >
         {/* HEADER */}
         <Stack
           direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
+          spacing={1.5}
           alignItems={{ xs: "stretch", sm: "center" }}
-          spacing={1.25}
-          mb={isMobile ? 2 : 4}
+          justifyContent="space-between"
+          sx={{ mb: 2.5 }}
         >
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant={isMobile ? "h5" : "h4"} fontWeight={900} noWrap>
-              {t("contract.management")}
+          <Box>
+            <Typography variant={isMobile ? "h5" : "h4"} fontWeight={900} sx={{ lineHeight: 1.15 }}>
+              {pageTitle}
             </Typography>
           </Box>
 
           {isAdMin && (
             <Button
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<FiPlus />}
               onClick={openCreate}
-              fullWidth={isMobile}
-              sx={{ borderRadius: 2, fontWeight: 900, py: isMobile ? 1.1 : undefined }}
             >
               {t("contract.create")}
             </Button>
           )}
         </Stack>
 
-        {/* FILTER SECTION */}
+        {/* FILTERS */}
         {isMobile ? (
-          <Card
+          <Accordion
+            elevation={0}
             sx={{
-              p: 2,
               mb: 2,
-              bgcolor: cardBg,
-              border: `1px solid ${borderColor}`,
-              borderRadius: 3,
-              boxShadow: "none",
+              borderRadius: 2,
+              overflow: "hidden",
+              bgcolor: "background.paper",
+              border: softBorder,
+              "&:before": { display: "none" },
             }}
           >
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              onClick={() => setMobileFilterOpen((v) => !v)}
-              sx={{ cursor: "pointer" }}
-            >
-              <Box>
-                <Typography fontWeight={900}>{t("Search...", { defaultValue: "Search..." })}</Typography>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Stack>
+                <Typography fontWeight={800}>{t("common.search")}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {t("Apply / Clear", { defaultValue: "Apply / Clear" })}
+                  {t("common.apply")} / {t("common.clear")}
                 </Typography>
-              </Box>
-              <IconButton size="small" sx={{ ml: 1 }}>
-                {mobileFilterOpen ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
-              </IconButton>
-            </Stack>
+              </Stack>
+            </AccordionSummary>
 
-            <Collapse in={mobileFilterOpen}>
-              <Divider sx={{ my: 1.5, borderColor }} />
-              <Stack spacing={1.25}>
+            <AccordionDetails>
+              <Stack spacing={1.4}>
                 <TextField
-                  fullWidth
                   size="small"
                   placeholder={t("common.search")}
                   value={search}
@@ -456,10 +280,11 @@ export default function ContractList() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
+                  fullWidth
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <SearchIcon />
+                        <FiSearch />
                       </InputAdornment>
                     ),
                   }}
@@ -467,13 +292,13 @@ export default function ContractList() {
 
                 <TextField
                   select
-                  fullWidth
                   size="small"
                   value={resellerId}
                   onChange={(e) => {
                     setResellerId(e.target.value);
                     setPage(1);
                   }}
+                  fullWidth
                   label={t("reseller.label")}
                 >
                   <MenuItem value="">{t("common.all")}</MenuItem>
@@ -486,7 +311,6 @@ export default function ContractList() {
 
                 <TextField
                   type="date"
-                  fullWidth
                   size="small"
                   label={t("contract.start")}
                   InputLabelProps={{ shrink: true }}
@@ -495,11 +319,11 @@ export default function ContractList() {
                     setStartFrom(e.target.value);
                     setPage(1);
                   }}
+                  fullWidth
                 />
 
                 <TextField
                   type="date"
-                  fullWidth
                   size="small"
                   label={t("contract.end")}
                   InputLabelProps={{ shrink: true }}
@@ -508,46 +332,37 @@ export default function ContractList() {
                     setStartTo(e.target.value);
                     setPage(1);
                   }}
+                  fullWidth
                 />
 
                 <Stack direction="row" spacing={1}>
                   <Button
                     fullWidth
-                    variant="outlined"
-                    onClick={clearFilters}
-                    sx={{ borderRadius: 2, fontWeight: 900 }}
-                  >
-                    {t("common.clear")}
-                  </Button>
-                  <Button
-                    fullWidth
                     variant="contained"
-                    onClick={() => {
-                        contractQuery.refetch();
-                        setMobileFilterOpen(false);
-                    }}
-                    sx={{ borderRadius: 2, fontWeight: 900 }}
+                    onClick={() => contractQuery.refetch()}
                   >
                     {t("common.apply")}
                   </Button>
+                  <Button fullWidth variant="outlined" onClick={clearFilters}>
+                    {t("common.clear")}
+                  </Button>
                 </Stack>
               </Stack>
-            </Collapse>
-          </Card>
+            </AccordionDetails>
+          </Accordion>
         ) : (
-          <Card
+          <Paper
             sx={{
-              p: 2,
+              p: 3,
+              borderRadius: "16px",
+              boxShadow: paperShadow,
               mb: 3,
-              bgcolor: cardBg,
+              bgcolor: "background.paper",
               border: `1px solid ${borderColor}`,
-              boxShadow: isDark ? "none" : undefined,
-              borderRadius: 3,
             }}
           >
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
               <TextField
-                fullWidth
                 size="small"
                 placeholder={t("common.search")}
                 value={search}
@@ -555,10 +370,11 @@ export default function ContractList() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
+                sx={{ flex: 1, minWidth: 220 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon />
+                      <FiSearch />
                     </InputAdornment>
                   ),
                 }}
@@ -572,8 +388,8 @@ export default function ContractList() {
                   setResellerId(e.target.value);
                   setPage(1);
                 }}
+                sx={{ width: 200 }}
                 label={t("reseller.label")}
-                sx={{ minWidth: 180 }}
               >
                 <MenuItem value="">{t("common.all")}</MenuItem>
                 {resellerQuery.data?.items?.map((r: any) => (
@@ -609,209 +425,355 @@ export default function ContractList() {
                 sx={{ width: 170 }}
               />
 
-              <Stack direction="row" spacing={1}>
-                <Button variant="outlined" onClick={clearFilters} sx={{ borderRadius: 2, fontWeight: 900 }}>
-                    {t("common.clear")}
+              <Button variant="contained" onClick={() => contractQuery.refetch()}>
+                {t("common.apply")}
+              </Button>
+
+              <Button variant="outlined" onClick={clearFilters}>
+                {t("common.clear")}
+              </Button>
+            </Stack>
+          </Paper>
+        )}
+
+        {/* CONTENT */}
+        {contractQuery.isLoading ? (
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 2,
+              bgcolor: "background.paper",
+              border: softBorder,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            <CircularProgress size={18} />
+            <Typography color="text.secondary">{t("Loading data...")}</Typography>
+          </Paper>
+        ) : isMobile ? (
+          // MOBILE LIST VIEW
+          <Stack spacing={1.5} sx={{ width: "100%" }}>
+            {data.map((c: any) => {
+              const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
+              return (
+                <Card
+                  key={c.id}
+                  variant="outlined"
+                  sx={{
+                    width: "100%",
+                    borderRadius: 2.5,
+                    borderColor: alpha(theme.palette.divider, 0.6),
+                    bgcolor: "background.paper",
+                    transition: "background-color .15s ease, box-shadow .15s ease",
+                    "&:hover": {
+                      bgcolor: rowHoverBg,
+                      boxShadow: rowHoverShadow,
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 2 }}>
+                    <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          fontWeight={900}
+                          sx={{
+                            color: "primary.main",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                          }}
+                          onClick={() => navigate(`/contracts/${c.id}/detail`)}
+                          noWrap
+                        >
+                          {c.contractNumber}
+                        </Typography>
+                        <Typography fontWeight={800} sx={{ mt: 0.25 }} noWrap>
+                          {c.firstName} {c.lastName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {c.email}
+                        </Typography>
+                      </Box>
+
+                      <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                        <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handlePdfIconClick(c)}
+                            sx={{
+                              color: hasPdf ? theme.palette.success.main : theme.palette.text.secondary,
+                              border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                              borderRadius: 2,
+                              "&:hover": { bgcolor: iconHoverBg },
+                            }}
+                          >
+                            {hasPdf ? <FiCheckCircle size={16} /> : <FiFileText size={16} />}
+                          </IconButton>
+                        </Tooltip>
+
+                        {isAdMin && (
+                          <>
+                            <Tooltip title={t("Edit")}>
+                              <IconButton
+                                size="small"
+                                onClick={() => openEdit(c.id)}
+                                sx={{
+                                  border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                                  borderRadius: 2,
+                                  "&:hover": { bgcolor: iconHoverBg },
+                                }}
+                              >
+                                <FiEdit size={16} />
+                              </IconButton>
+                            </Tooltip>
+
+                            <Tooltip title={t("Delete")}>
+                              <IconButton
+                                size="small"
+                                onClick={() => openDelete(c.id)}
+                                sx={{
+                                  color: theme.palette.error.main,
+                                  border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                                  borderRadius: 2,
+                                  "&:hover": { bgcolor: iconHoverBg },
+                                }}
+                              >
+                                <FiTrash2 size={16} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Stack>
+                    </Stack>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {t("Reseller")}
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700}>
+                          <ResellerCell resellerId={c.resellerId} />
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {t("contract.start")}
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700}>
+                          {c.startDate ? new Date(c.startDate).toLocaleDateString() : "-"}
+                        </Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {t("contract.end")}
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700}>
+                          {c.endDate ? new Date(c.endDate).toLocaleDateString() : "-"}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            <Paper sx={{ p: 2, borderRadius: 2, bgcolor: "background.paper", border: softBorder }}>
+              <Stack spacing={1}>
+                <Typography color="text.secondary" textAlign="center">
+                  {t("Page")} <b>{page}</b> / <b>{totalPages}</b>
+                </Typography>
+
+                <Stack direction="row" spacing={1}>
+                  <Button fullWidth variant="outlined" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                    {t("prev")}
+                  </Button>
+                  <Button fullWidth variant="outlined" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+                    {t("next")}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
+          </Stack>
+        ) : (
+          // DESKTOP TABLE VIEW
+          <Paper
+            sx={{
+              borderRadius: "16px",
+              overflow: "hidden",
+              bgcolor: "background.paper",
+              border: `1px solid ${borderColor}`,
+            }}
+          >
+            {/* HEADER ROW */}
+            <Stack
+              direction="row"
+              px={2.2}
+              py={1.4}
+              sx={{
+                fontWeight: 700,
+                bgcolor: "action.hover",
+                borderBottom: `1px solid ${borderColor}`,
+                color: "text.secondary",
+              }}
+            >
+              <Box flex={1}>{t("Contract No.")}</Box>
+
+              <Box
+                flex={1.4}
+                onClick={() => toggleSort("customerName")}
+                sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 0.5, userSelect: "none" }}
+              >
+                {t("Customer")}
+                {sortBy === "customerName" ? (sortDesc ? <FiChevronDown /> : <FiChevronUp />) : null}
+              </Box>
+
+              <Box
+                flex={1.6}
+                onClick={() => toggleSort("email")}
+                sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 0.5, userSelect: "none" }}
+              >
+                Email
+                {sortBy === "email" ? (sortDesc ? <FiChevronDown /> : <FiChevronUp />) : null}
+              </Box>
+
+              <Box flex={1.1}>{t("Reseller")}</Box>
+              <Box flex={0.8}>{t("contract.start")}</Box>
+              <Box flex={0.8}>{t("contract.end")}</Box>
+              <Box width={120} textAlign="center">
+                {t("Action")}
+              </Box>
+            </Stack>
+
+            {/* BODY ROWS */}
+            {data.map((c: any) => {
+              const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
+              return (
+                <Stack
+                  key={c.id}
+                  direction="row"
+                  px={2.2}
+                  py={1.6}
+                  sx={{
+                    alignItems: "center",
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.35)}`,
+                    bgcolor: "background.paper",
+
+                    transition: "background-color .15s ease, box-shadow .15s ease, border-color .15s ease",
+                    "&:hover": {
+                      bgcolor: rowHoverBg,
+                      boxShadow: rowHoverShadow,
+                      borderColor: alpha(theme.palette.divider, isDark ? 0.55 : 0.6),
+                    },
+                    "&:focus-within": {
+                      bgcolor: rowHoverBg,
+                      boxShadow: rowHoverShadow,
+                    },
+                  }}
+                >
+                  <Box
+                    flex={1}
+                    fontWeight={700}
+                    onClick={() => navigate(`/contracts/${c.id}/detail`)}
+                    sx={{
+                      color: "primary.main",
+                      cursor: "pointer",
+                      "&:hover": {
+                        textDecoration: "underline",
+                        color: "primary.dark",
+                      },
+                    }}
+                  >
+                    {c.contractNumber}
+                  </Box>
+
+                  <Box flex={1.4}>
+                    {c.firstName} {c.lastName}
+                  </Box>
+
+                  <Box flex={1.6}>{c.email}</Box>
+
+                  <Box flex={1.1}>
+                    <ResellerCell resellerId={c.resellerId} />
+                  </Box>
+
+                  <Box flex={0.8}>{c.startDate ? new Date(c.startDate).toLocaleDateString() : "-"}</Box>
+                  <Box flex={0.8}>{c.endDate ? new Date(c.endDate).toLocaleDateString() : "-"}</Box>
+
+                  <Stack direction="row" spacing={0.5} width={120} justifyContent="center">
+                    <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handlePdfIconClick(c)}
+                        sx={{
+                          color: hasPdf ? theme.palette.success.main : theme.palette.text.secondary,
+                          "&:hover": { bgcolor: iconHoverBg },
+                        }}
+                      >
+                        {hasPdf ? <FiCheckCircle size={18} /> : <FiFileText size={18} />}
+                      </IconButton>
+                    </Tooltip>
+
+                    {isAdMin && (
+                      <>
+                        <IconButton
+                          size="small"
+                          onClick={() => openEdit(c.id)}
+                          sx={{ color: "text.primary", "&:hover": { bgcolor: iconHoverBg } }}
+                        >
+                          <FiEdit size={16} />
+                        </IconButton>
+
+                        <IconButton
+                          size="small"
+                          onClick={() => openDelete(c.id)}
+                          sx={{ color: theme.palette.error.main, "&:hover": { bgcolor: iconHoverBg } }}
+                        >
+                          <FiTrash2 size={16} />
+                        </IconButton>
+                      </>
+                    )}
+                  </Stack>
+                </Stack>
+              );
+            })}
+
+            {/* FOOTER */}
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              p={2}
+              sx={{
+                bgcolor: isDark ? alpha(theme.palette.common.black, 0.25) : "background.paper",
+                borderTop: `1px solid ${borderColor}`,
+              }}
+            >
+              <Typography color="text.secondary">
+                {t("Total")}: {totalCount}
+              </Typography>
+
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                  {t("prev")}
                 </Button>
-                <Button variant="contained" onClick={() => contractQuery.refetch()} sx={{ borderRadius: 2, fontWeight: 900 }}>
-                    {t("common.apply")}
+
+                <Typography color="text.secondary">
+                  <b>{page}</b> / <b>{totalPages}</b>
+                </Typography>
+
+                <Button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+                  {t("next")}
                 </Button>
               </Stack>
             </Stack>
-          </Card>
-        )}
-
-        {/* DATA LIST / TABLE */}
-        {isMobile ? (
-          <Stack spacing={1.5}>
-            {contractQuery.isLoading ? (
-               <Card sx={{ p: 2, borderRadius: 3, bgcolor: "background.paper", border: `1px solid ${alpha(theme.palette.divider, 0.6)}`, boxShadow: "none" }}>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <CircularProgress size={18} />
-                  <Typography color="text.secondary">{t("Loading data...")}</Typography>
-                </Stack>
-              </Card>
-            ) : data.length === 0 ? (
-               <Card sx={{ p: 2, borderRadius: 3, bgcolor: "background.paper", border: `1px solid ${alpha(theme.palette.divider, 0.6)}`, boxShadow: "none" }}>
-                <Typography fontWeight={900}>{t("No contracts found")}</Typography>
-              </Card>
-            ) : (
-                // SỬ DỤNG COMPONENT ĐÃ TÁCH
-                data.map((c: any) => (
-                  <MobileContractCard 
-                    key={c.id} 
-                    c={c} 
-                    isAdMin={isAdMin}
-                    onPdfClick={handlePdfIconClick}
-                    onEdit={openEdit}
-                    onDelete={openDelete}
-                  />
-                ))
-            )}
-
-             {/* MOBILE PAGINATION */}
-             <Card sx={{ borderRadius: 3, bgcolor: "background.paper", border: `1px solid ${alpha(theme.palette.divider, 0.6)}`, boxShadow: "none" }}>
-                <CardContent sx={{ p: 2 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="body2" color="text.secondary">
-                            {t("Page")} <b>{page}</b> / <b>{totalPages}</b>
-                        </Typography>
-                        <Stack direction="row" spacing={1}>
-                            <Button variant="outlined" size="small" disabled={!canPrev} onClick={() => setPage(p => Math.max(1, p - 1))} sx={{ borderRadius: 2, fontWeight: 900 }}>{t("prev")}</Button>
-                            <Button variant="outlined" size="small" disabled={!canNext} onClick={() => setPage(p => Math.min(totalPages, p + 1))} sx={{ borderRadius: 2, fontWeight: 900 }}>{t("next")}</Button>
-                        </Stack>
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {t("Showing", { defaultValue: "Showing" })} <b>{shownCount}</b> {t("of", { defaultValue: "of" })} <b>{totalCount}</b>
-                    </Typography>
-                </CardContent>
-            </Card>
-          </Stack>
-        ) : (
-          <Card
-            sx={{
-              borderRadius: 3,
-              overflow: "hidden",
-              bgcolor: cardBg,
-              border: `1px solid ${borderColor}`,
-              boxShadow: isDark ? "none" : undefined,
-            }}
-          >
-            <Table>
-              <TableHead sx={{ bgcolor: headBg }}>
-                <TableRow>
-                  <TableCell sx={headCellSx}>{t("Contract No.")}</TableCell>
-
-                  <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("customerName")}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <span>{t("Customer")}</span>
-                      {renderSortIcon("customerName")}
-                    </Stack>
-                  </TableCell>
-
-                  <TableCell sx={{ ...headCellSx, cursor: "pointer" }} onClick={() => toggleSort("email")}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <span>Email</span>
-                      {renderSortIcon("email")}
-                    </Stack>
-                  </TableCell>
-
-                  <TableCell sx={headCellSx}>{t("Reseller")}</TableCell>
-                  <TableCell sx={headCellSx}>{t("contract.start")}</TableCell>
-                  <TableCell sx={headCellSx}>{t("contract.end")}</TableCell>
-                  <TableCell align="right" sx={headCellSx}>{t("Action")}</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {contractQuery.isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={24} />
-                    </TableCell>
-                  </TableRow>
-                ) : data.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                      {t("No contracts found")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data.map((c: any) => {
-                    const hasPdf = typeof c?.pdfLink === "string" && c.pdfLink.trim() !== "";
-                    return (
-                        <TableRow key={c.id} hover sx={{ "&:hover": { bgcolor: rowHoverBg } }}>
-                            <TableCell 
-                                sx={{ color: "primary.main", fontWeight: 700, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-                                onClick={() => navigate(`/contracts/${c.id}/detail`)}
-                            >
-                                {c.contractNumber}
-                            </TableCell>
-
-                            <TableCell sx={{ color: "text.primary" }}>
-                                {c.firstName} {c.lastName}
-                            </TableCell>
-
-                            <TableCell sx={{ color: "text.primary" }}>{c.email}</TableCell>
-                            
-                            <TableCell>
-                                <ResellerCell resellerId={c.resellerId} />
-                            </TableCell>
-
-                            <TableCell sx={{ color: "text.primary" }}>
-                                {c.startDate ? new Date(c.startDate).toLocaleDateString() : "-"}
-                            </TableCell>
-                            
-                            <TableCell sx={{ color: "text.primary" }}>
-                                {c.endDate ? new Date(c.endDate).toLocaleDateString() : "-"}
-                            </TableCell>
-
-                            <TableCell align="right">
-                                <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                                    <Tooltip title={hasPdf ? t("pdf.view") : t("pdf.generate")}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handlePdfIconClick(c)}
-                                            color={hasPdf ? "success" : "default"}
-                                            sx={{ 
-                                                border: `1px solid ${hasPdf ? theme.palette.success.light : alpha(theme.palette.divider, 0.5)}`,
-                                                bgcolor: hasPdf ? alpha(theme.palette.success.main, 0.1) : "transparent"
-                                            }}
-                                        >
-                                            {hasPdf ? <FiCheckCircle size={18} /> : <FiFileText size={18} />}
-                                        </IconButton>
-                                    </Tooltip>
-
-                                    {isAdMin && (
-                                        <>
-                                            <IconButton size="small" color="primary" onClick={() => openEdit(c.id)}>
-                                                <EditIcon fontSize="small" />
-                                            </IconButton>
-                                            <IconButton size="small" color="error" onClick={() => openDelete(c.id)}>
-                                                <DeleteIcon fontSize="small" />
-                                            </IconButton>
-                                        </>
-                                    )}
-                                </Stack>
-                            </TableCell>
-                        </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-
-            <Divider sx={{ borderColor }} />
-
-            {/* DESKTOP PAGINATION */}
-            <Box
-                sx={{
-                    px: 2,
-                    py: 1.5,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    bgcolor: isDark ? alpha(theme.palette.common.black, 0.25) : "background.paper",
-                }}
-            >
-                <Typography variant="body2" color="text.secondary">
-                    {t("Showing", { defaultValue: "Showing" })} <b>{shownCount}</b> {t("of", { defaultValue: "of" })}{" "}
-                    <b>{totalCount}</b>
-                </Typography>
-
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Button variant="text" disabled={!canPrev} onClick={() => setPage((p) => Math.max(1, p - 1))} sx={{ fontSize: 12 }}>
-                        {t("prev")}
-                    </Button>
-                    <Typography variant="body2" color="text.secondary">
-                        {t("Page")} <b>{page}</b> / <b>{totalPages}</b>
-                    </Typography>
-                    <Button variant="text" disabled={!canNext} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} sx={{ fontSize: 12 }}>
-                        {t("next")}
-                    </Button>
-                </Stack>
-            </Box>
-          </Card>
+          </Paper>
         )}
 
         {/* --- DIALOGS --- */}
@@ -826,33 +788,15 @@ export default function ContractList() {
           }}
         />
 
-        {deleteOpen && (
-             <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="sm">
-                <DialogTitle sx={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 1 }}>
-                    <WarningAmberRoundedIcon sx={{ color: "#f59e0b" }} />
-                    {t("Delete Contract?", { defaultValue: "Delete Contract?" })}
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Typography color="text.secondary">
-                         {t("Are you sure you want to delete this contract?")}<br />
-                         {t("This action cannot be undone.")}
-                    </Typography>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button variant="outlined" onClick={() => setDeleteOpen(false)} sx={{ borderRadius: 2 }}>
-                         {t("Cancel")}
-                    </Button>
-                     <Button
-                        variant="contained"
-                        color="error"
-                        onClick={confirmDelete}
-                        sx={{ borderRadius: 2, px: 3 }}
-                    >
-                        {t("Delete")}
-                    </Button>
-                </DialogActions>
-             </Dialog>
-        )}
+        <ContractDelete
+          open={deleteOpen}
+          id={deleteId}
+          onClose={() => setDeleteOpen(false)}
+          onSuccess={() => {
+            setDeleteOpen(false);
+            contractQuery.refetch();
+          }}
+        />
 
         <GeneratePdfDialog
           open={genPdfOpen}

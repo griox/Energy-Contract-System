@@ -7,23 +7,17 @@ import type { CreateTemplateParams, UpdateTemplateParams } from "@/types/pdf";
 // ==================== PDF GENERATION HOOKS ====================
 
 export function useGeneratePdf() {
-    // 1. Khởi tạo queryClient
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: ContractPdfApi.generate,
 
         onSuccess: (data: any) => {
-           
-            queryClient.invalidateQueries({ queryKey: ["contracts"] });
+            toast.success("PDF generated successfully!");
 
-            // Mở PDF (Tùy chọn, cẩn thận kẻo trình duyệt chặn popup)
+            // 🔥 MỞ PDF
             if (data?.pdfUrl) {
-                // Có thể bọc trong try-catch hoặc kiểm tra trước
-                const newWindow = window.open(data.pdfUrl, "_blank", "noopener,noreferrer");
-                if (!newWindow) {
-                    toast("Pop-up blocked! Please allow pop-ups to view PDF.", { icon: "⚠️" });
-                }
+                window.open(data.pdfUrl, "_blank", "noopener,noreferrer");
+            } else {
+                toast.error("PDF URL not found!");
             }
         },
 
