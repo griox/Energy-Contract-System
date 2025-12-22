@@ -25,10 +25,14 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
-  Drawer
+  Drawer,
+  CircularProgress // Thêm loading indicator nếu muốn
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { ColorModeContext } from "@/theme/AppThemeProvider";
+
+// 👇 1. Import hook useLogout (sửa đường dẫn đúng với file của bạn)
+import { useLogout } from "@/hooks/useAuth"; 
 
 const SIDEBAR_WIDTH = 240;
 
@@ -41,7 +45,10 @@ export default function NavMenu() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);
   const lang = (i18n.language || "en") as "vi" | "en";
 
-  const [open, setOpen] = useState(false); // MOBILE MENU
+  const [open, setOpen] = useState(false);
+
+  // 👇 2. Khởi tạo hook logout
+  const logoutMutation = useLogout();
 
   const menuItems = [
     { key: "home", path: "/home", icon: <Home size={18} /> },
@@ -60,7 +67,12 @@ export default function NavMenu() {
     localStorage.setItem("lng", next);
   };
 
-  // Sidebar UI (tách riêng để dùng cho Drawer & Desktop)
+  // Hàm xử lý logout
+  const handleLogout = () => {
+    // Gọi hàm mutate của react-query để kích hoạt quy trình logout (gọi API -> clear store -> redirect)
+    logoutMutation.mutate();
+  };
+
   const SidebarContent = (
     <Box
       sx={{
@@ -81,7 +93,6 @@ export default function NavMenu() {
         INFODATION
       </Typography>
 
-      {/* Language + Theme */}
       <Stack direction="row" alignItems="center" justifyContent="space-between" mt={2}>
         <ToggleButtonGroup size="small" value={lang} exclusive onChange={handleLang}>
           <ToggleButton value="vi">VI</ToggleButton>
@@ -109,8 +120,7 @@ export default function NavMenu() {
               sx={{
                 mb: 1,
                 borderRadius: 2,
-                border: `1px solid ${active ? alpha(theme.palette.primary.main, 0.35) : "transparent"
-                  }`,
+                border: `1px solid ${active ? alpha(theme.palette.primary.main, 0.35) : "transparent"}`,
                 bgcolor: active ? alpha(theme.palette.primary.main, 0.12) : "transparent",
                 "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.12) }
               }}
@@ -130,14 +140,20 @@ export default function NavMenu() {
       </List>
 
       <Box sx={{ mt: "auto" }}>
+        {/* 👇 3. Cập nhật nút Logout */}
         <Button
           fullWidth
           variant="contained"
           color="error"
-          onClick={() => navigate("/")}
+          onClick={handleLogout} // Gọi hàm handleLogout thay vì navigate trực tiếp
+          disabled={logoutMutation.isPending} // Disable khi đang xử lý logout
           sx={{ py: 1.2, borderRadius: 2 }}
         >
-          🔓 {t("nav.logout")}
+          {logoutMutation.isPending ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            <>🔓 {t("nav.logout")}</>
+          )}
         </Button>
       </Box>
     </Box>
@@ -145,7 +161,6 @@ export default function NavMenu() {
 
   return (
     <>
-      {/* MOBILE TOP BAR */}
       {/* MOBILE TOP BAR */}
       <Box
         sx={{
@@ -166,7 +181,6 @@ export default function NavMenu() {
           <Menu size={26} />
         </IconButton>
 
-        {/* Title area */}
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography
             variant="h4"
@@ -176,9 +190,6 @@ export default function NavMenu() {
             sx={{ lineHeight: 1.1 }}
           >
             {t("INFODATION")}
-          </Typography>
-
-          <Typography variant="caption" color="text.secondary" noWrap>
           </Typography>
         </Box>
       </Box>

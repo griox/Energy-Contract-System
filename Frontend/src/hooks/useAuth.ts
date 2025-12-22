@@ -77,7 +77,7 @@ export const useLogout = () => {
         onSettled: () => {
             setAccessToken(null)
             queryClient.clear()
-            navigate("/signin")
+            navigate("/")
             toast.success(t("auth.logout.success", "Đã đăng xuất"))
         },
     })
