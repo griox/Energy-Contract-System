@@ -83,16 +83,13 @@ function normalizePath(path: string) {
 function isNoisePath(path: string) {
     const p = normalizePath(path);
 
-    // ignore ids (thường không phải thay đổi nghiệp vụ cần đọc)
     if (p === "id" || p.endsWith(".id")) return true;
     if (p === "contractid" || p.endsWith(".contractid")) return true;
 
-    // ignore navigation collections (hay nhiễu)
     if (p.startsWith("orders") || p.includes(".orders")) return true;
     if (p.startsWith("history") || p.includes(".history")) return true;
     if (p.includes(".contracts")) return true;
 
-    // ignore aws signature noise (nếu có)
     if (p.includes("x-amz") || p.includes("signature") || p.includes("credential")) return true;
 
     return false;
@@ -109,7 +106,6 @@ function flattenAny(
     if (depth > maxDepth) return out;
 
     if (Array.isArray(value)) {
-        // primitive array
         if (value.every((x) => !isPlainObject(x) && !Array.isArray(x))) {
             out[prefix || "[]"] = value.slice(0, maxArrayItems);
             return out;
@@ -145,6 +141,53 @@ function humanizeLabel(path: string) {
     return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/**
+ * ✅ Normalize để so sánh diff (giảm nhiễu timezone/format):
+ * - Date-like string: ép về YYYY-MM-DD
+ * - String: trim
+ * - number/boolean: stringify
+ * - object/array: JSON.stringify
+ */
+function normalizeForCompare(path: string, v: any) {
+    if (v === null || v === undefined) return "";
+    const p = normalizePath(path);
+
+    if (typeof v === "string") {
+        const s = v.trim();
+        if (!s) return "";
+
+        const isDateField =
+            p.endsWith("startdate") ||
+            p.endsWith("enddate") ||
+            p.endsWith("date") ||
+            p.includes("date.");
+
+        if (isDateField) {
+            const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+            if (m) return m[0];
+
+            const d = new Date(s);
+            if (!Number.isNaN(d.getTime())) {
+                const y = d.getFullYear();
+                const mo = String(d.getMonth() + 1).padStart(2, "0");
+                const da = String(d.getDate()).padStart(2, "0");
+                return `${y}-${mo}-${da}`;
+            }
+        }
+
+        return s;
+    }
+
+    if (typeof v === "number") return String(v);
+    if (typeof v === "boolean") return v ? "true" : "false";
+
+    try {
+        return JSON.stringify(v);
+    } catch {
+        return String(v);
+    }
+}
+
 /** ======================
  * Types (khớp Swagger)
  * ====================== */
@@ -161,7 +204,7 @@ type ChangeItem = {
     oldVal: any;
     newVal: any;
     kind: "diff" | "plain" | "nodiff";
-    label?: string; // fill later by language
+    label?: string;
 };
 
 type HistoryGroup = {
@@ -180,7 +223,7 @@ function buildHistoryGroups(items: HistoryItem[]): HistoryGroup[] {
         const oldJson = safeJsonParse<any>(h.oldValue ?? "");
         const newJson = safeJsonParse<any>(h.newValue ?? "");
 
-        // 1) old/new không phải JSON => show plain
+        // old/new không phải JSON => show plain
         if (!oldJson || !newJson) {
             groups.push({
                 historyId: h.id,
@@ -188,14 +231,11 @@ function buildHistoryGroups(items: HistoryItem[]): HistoryGroup[] {
                 contractId: h.contractId,
                 oldRaw: h.oldValue,
                 newRaw: h.newValue,
-                changes: [
-                    { path: "plain", oldVal: h.oldValue, newVal: h.newValue, kind: "plain" },
-                ],
+                changes: [{ path: "plain", oldVal: h.oldValue, newVal: h.newValue, kind: "plain" }],
             });
             continue;
         }
 
-        // 2) Snapshot JSON => diff field
         const oldFlat = flattenAny(oldJson);
         const newFlat = flattenAny(newJson);
 
@@ -204,9 +244,15 @@ function buildHistoryGroups(items: HistoryItem[]): HistoryGroup[] {
 
         keys.forEach((path) => {
             if (isNoisePath(path)) return;
+
             const a = oldFlat[path];
             const b = newFlat[path];
-            if (JSON.stringify(a) !== JSON.stringify(b)) {
+
+            // ✅ compare after normalize
+            const na = normalizeForCompare(path, a);
+            const nb = normalizeForCompare(path, b);
+
+            if (na !== nb) {
                 diffs.push({ path, oldVal: a, newVal: b, kind: "diff" });
             }
         });
@@ -218,14 +264,7 @@ function buildHistoryGroups(items: HistoryItem[]): HistoryGroup[] {
                 contractId: h.contractId,
                 oldRaw: h.oldValue,
                 newRaw: h.newValue,
-                changes: [
-                    {
-                        path: "nodiff",
-                        oldVal: h.oldValue,
-                        newVal: h.newValue,
-                        kind: "nodiff",
-                    },
-                ],
+                changes: [{ path: "nodiff", oldVal: h.oldValue, newVal: h.newValue, kind: "nodiff" }],
             });
             continue;
         }
@@ -242,14 +281,6 @@ function buildHistoryGroups(items: HistoryItem[]): HistoryGroup[] {
 
     groups.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return groups;
-}
-
-function getDiffType(oldVal: any, newVal: any) {
-    const oldEmpty = oldVal === undefined || oldVal === null || oldVal === "";
-    const newEmpty = newVal === undefined || newVal === null || newVal === "";
-    if (oldEmpty && !newEmpty) return "added";
-    if (!oldEmpty && newEmpty) return "removed";
-    return "updated";
 }
 
 /** ======================
@@ -283,7 +314,6 @@ export default function ContractHistoryPage() {
             if (typeof v === "string") {
                 const s = v.trim();
                 if (!s) return "—";
-                // ISO datetime -> show date only
                 if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.split("T")[0];
                 if (s.startsWith("http://") || s.startsWith("https://")) return isVI ? "Liên kết" : "Link";
                 if (s.length > 80) return s.slice(0, 77) + "…";
@@ -300,10 +330,9 @@ export default function ContractHistoryPage() {
         [isVI]
     );
 
-    // ✅ field labels song ngữ (cả contract/reseller/address)
+    // ✅ labels song ngữ
     const FIELD_LABELS: Record<string, { vi: string; en: string }> = useMemo(
         () => ({
-            // contract root
             contractnumber: { vi: "Mã hợp đồng", en: "Contract number" },
             startdate: { vi: "Ngày bắt đầu", en: "Start date" },
             enddate: { vi: "Ngày kết thúc", en: "End date" },
@@ -315,18 +344,15 @@ export default function ContractHistoryPage() {
             bankaccountnumber: { vi: "Số tài khoản", en: "Bank account number" },
             pdflink: { vi: "Link PDF", en: "PDF link" },
 
-            // reseller
             resellerid: { vi: "ResellerId", en: "ResellerId" },
             "reseller.name": { vi: "Đại lý", en: "Reseller" },
             "reseller.type": { vi: "Loại đại lý", en: "Reseller type" },
 
-            // address
             addressid: { vi: "AddressId", en: "AddressId" },
             "address.zipcode": { vi: "Mã bưu chính", en: "Postal code" },
             "address.housenumber": { vi: "Số nhà", en: "House number" },
             "address.extension": { vi: "Phụ", en: "Extension" },
 
-            // special
             plain: { vi: "Thay đổi (raw)", en: "Change (raw)" },
             nodiff: { vi: "Không có field thay đổi", en: "No field changes" },
         }),
@@ -341,13 +367,12 @@ export default function ContractHistoryPage() {
             const hit = FIELD_LABELS[norm] ?? FIELD_LABELS[lastSeg];
             if (hit) return isVI ? hit.vi : hit.en;
 
-            // fallback
             return humanizeLabel(path);
         },
         [FIELD_LABELS, isVI]
     );
 
-    // ===== contractId ưu tiên path param, fallback query param =====
+    // contractId ưu tiên param path, fallback query
     const contractIdFromUrl = useMemo(() => {
         const p1 = id ? Number(id) : NaN;
         const raw = searchParams.get("contractId");
@@ -355,7 +380,6 @@ export default function ContractHistoryPage() {
         return !Number.isNaN(p1) ? p1 : !Number.isNaN(p2) ? p2 : NaN;
     }, [id, searchParams]);
 
-    // ===== params từ query string =====
     const pageNumberFromUrl = useMemo(() => toIntOrFallback(searchParams.get("pageNumber"), 1), [searchParams]);
     const pageSizeFromUrl = useMemo(() => {
         const size = toIntOrFallback(searchParams.get("pageSize"), 10);
@@ -363,7 +387,6 @@ export default function ContractHistoryPage() {
     }, [searchParams]);
     const searchFromUrl = useMemo(() => searchParams.get("search") ?? "", [searchParams]);
 
-    // ===== local input =====
     const [inputContractId, setInputContractId] = useState("");
     const [inputSearch, setInputSearch] = useState("");
 
@@ -375,19 +398,16 @@ export default function ContractHistoryPage() {
         setInputSearch(searchFromUrl);
     }, [searchFromUrl]);
 
-    // ✅ debounce search
     const debouncedSearch = useDebounce(inputSearch, 450);
 
-    // ===== enable query =====
     const contractId = inputContractId.trim() === "" ? NaN : Number(inputContractId);
     const enabled = Number.isFinite(contractId) && contractId > 0;
 
-    // ===== styles =====
     const borderColor = alpha(theme.palette.divider, isDark ? 0.35 : 0.8);
     const softBorder = `1px solid ${alpha(theme.palette.divider, isDark ? 0.3 : 0.55)}`;
     const paperShadow = isDark ? "none" : "0 2px 12px rgba(0,0,0,0.06)";
 
-    // ===== contracts dropdown =====
+    // contracts dropdown
     const { data: contractData, isLoading: isLoadingContracts } = useContracts({ pageNumber: 1, pageSize: 200 }) as any;
     const contracts = contractData?.items ?? [];
 
@@ -396,23 +416,25 @@ export default function ContractHistoryPage() {
         return contracts.find((c: any) => String(c.id) === String(inputContractId)) ?? null;
     }, [contracts, inputContractId]);
 
-    // ===== querystring helpers =====
+    // querystring helpers
     const applyParams = useCallback(
         (next: { contractId?: string; pageNumber?: number; pageSize?: number; search?: string }) => {
-            const currentContractId = next.contractId ?? searchParams.get("contractId") ?? "";
+            const fallbackContractId = inputContractId.trim() || searchParams.get("contractId") || "";
+
+            const currentContractId = (next.contractId ?? fallbackContractId).trim();
             const currentPageNumber = String(next.pageNumber ?? pageNumberFromUrl);
             const currentPageSize = String(next.pageSize ?? pageSizeFromUrl);
-            const currentSearch = next.search ?? searchParams.get("search") ?? "";
+            const currentSearch = (next.search ?? searchParams.get("search") ?? "").trim();
 
             const sp: Record<string, string> = {};
-            if (currentContractId.trim()) sp.contractId = currentContractId.trim();
+            if (currentContractId) sp.contractId = currentContractId;
             if (currentPageNumber) sp.pageNumber = currentPageNumber;
             if (currentPageSize) sp.pageSize = currentPageSize;
-            if (currentSearch.trim()) sp.search = currentSearch.trim();
+            if (currentSearch) sp.search = currentSearch;
 
             setSearchParams(sp);
         },
-        [pageNumberFromUrl, pageSizeFromUrl, searchParams, setSearchParams]
+        [inputContractId, pageNumberFromUrl, pageSizeFromUrl, searchParams, setSearchParams]
     );
 
     const handleLoad = () => {
@@ -429,14 +451,21 @@ export default function ContractHistoryPage() {
     const handlePageChange = (_: any, page: number) => applyParams({ pageNumber: page });
     const handlePageSizeChange = (size: number) => applyParams({ pageSize: size, pageNumber: 1 });
 
-    // ✅ auto apply search sau debounce
     useEffect(() => {
         if (!enabled) return;
-        if (debouncedSearch === (searchFromUrl ?? "")) return;
-        applyParams({ search: debouncedSearch.trim(), pageNumber: 1 });
-    }, [applyParams, debouncedSearch, enabled, searchFromUrl]);
 
-    // ===== history query =====
+        const nextSearch = (debouncedSearch || "").trim();
+        const currentSearch = (searchFromUrl || "").trim();
+        if (nextSearch === currentSearch) return;
+
+        applyParams({
+            contractId: inputContractId.trim(),
+            search: nextSearch,
+            pageNumber: 1,
+        });
+    }, [applyParams, debouncedSearch, enabled, inputContractId, searchFromUrl]);
+
+    // history query
     const { data, isLoading, isFetching, isError, error } = useContractHistoryByContract({
         contractId: enabled ? contractId : undefined,
         pageNumber: pageNumberFromUrl,
@@ -448,9 +477,13 @@ export default function ContractHistoryPage() {
     const totalPages = data?.totalPages ?? 0;
     const totalCount = data?.totalCount ?? 0;
 
-    const historyGroupsRaw = useMemo(() => buildHistoryGroups(items), [items]);
+    // ✅ build + ẩn record "No field changes"
+    const historyGroupsRaw = useMemo(() => {
+        const gs = buildHistoryGroups(items);
+        return gs.filter((g) => g.changes.some((c) => c.kind !== "nodiff"));
+    }, [items]);
 
-    // attach labels by current language
+    // attach labels
     const historyGroups = useMemo(() => {
         return historyGroupsRaw.map((g) => ({
             ...g,
@@ -466,7 +499,7 @@ export default function ContractHistoryPage() {
         }));
     }, [historyGroupsRaw, resolveLabel]);
 
-    // client-side filter (phòng BE search chỉ match raw json)
+    // client-side filter
     const clientFilteredGroups = useMemo(() => {
         const q = (searchFromUrl || "").trim().toLowerCase();
         if (!q) return historyGroups;
@@ -491,7 +524,7 @@ export default function ContractHistoryPage() {
         [resolveLabel]
     );
 
-    // ===== expand/collapse per record =====
+    // expand/collapse
     const [expandedIds, setExpandedIds] = useState<Record<number, boolean>>({});
     useEffect(() => {
         setExpandedIds({});
@@ -501,7 +534,7 @@ export default function ContractHistoryPage() {
         setExpandedIds((prev) => ({ ...prev, [historyId]: !prev[historyId] }));
     };
 
-    // ===== Delete confirm dialog =====
+    // delete dialog
     const deleteMutation = useDeleteContractHistory();
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
@@ -525,25 +558,13 @@ export default function ContractHistoryPage() {
         closeDelete();
     };
 
-    const badgeText = useCallback(
-        (type: "added" | "updated" | "removed") => {
-            if (type === "added") return t("history.badge.added", { defaultValue: isVI ? "THÊM" : "ADDED" });
-            if (type === "removed") return t("history.badge.removed", { defaultValue: isVI ? "XÓA" : "REMOVED" });
-            return t("history.badge.updated", { defaultValue: isVI ? "CẬP NHẬT" : "UPDATED" });
-        },
+    // ✅ chỉ dùng UPDATED + PLAIN
+    const updatedText = useCallback(
+        () => t("history.badge.updated", { defaultValue: isVI ? "CẬP NHẬT" : "UPDATED" }),
         [isVI, t]
     );
 
     const renderChangeLine = (c: ChangeItem, idx: number) => {
-        if (c.kind === "nodiff") {
-            return (
-                <Stack key={`${c.path}-${idx}`} direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
-                    <Chip label={c.label} size="small" color="warning" variant="outlined" sx={{ fontWeight: 900 }} />
-                    <Chip label="NO DIFF" size="small" color="warning" variant="outlined" />
-                </Stack>
-            );
-        }
-
         if (c.kind === "plain") {
             return (
                 <Stack key={`${c.path}-${idx}`} direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
@@ -555,14 +576,16 @@ export default function ContractHistoryPage() {
             );
         }
 
-        const diffType = getDiffType(c.oldVal, c.newVal);
-        const badge =
-            diffType === "added"
-                ? ({ label: badgeText("added"), color: "success" as const })
-                : diffType === "removed"
-                    ? ({ label: badgeText("removed"), color: "error" as const })
-                    : ({ label: badgeText("updated"), color: "primary" as const });
+        if (c.kind === "nodiff") {
+            // (thực tế đã filter rồi, nhưng giữ cho an toàn)
+            return (
+                <Stack key={`${c.path}-${idx}`} direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
+                    <Chip label={c.label} size="small" color="warning" variant="outlined" sx={{ fontWeight: 900 }} />
+                </Stack>
+            );
+        }
 
+        // diff -> ALWAYS UPDATED
         return (
             <Stack key={`${c.path}-${idx}`} direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
                 <Tooltip title={c.path} placement="top-start">
@@ -582,7 +605,7 @@ export default function ContractHistoryPage() {
                         label={formatValue(c.oldVal)}
                         size="small"
                         variant="outlined"
-                        color={diffType === "added" ? "default" : "error"}
+                        color="error"
                         sx={{
                             fontWeight: 700,
                             textDecoration: "line-through",
@@ -599,7 +622,7 @@ export default function ContractHistoryPage() {
                         label={formatValue(c.newVal)}
                         size="small"
                         variant="outlined"
-                        color={diffType === "removed" ? "default" : "success"}
+                        color="success"
                         sx={{
                             fontWeight: 900,
                             maxWidth: 340,
@@ -608,7 +631,7 @@ export default function ContractHistoryPage() {
                     />
                 </Tooltip>
 
-                <Chip label={badge.label} size="small" color={badge.color} variant="outlined" sx={{ fontWeight: 900 }} />
+                <Chip label={updatedText()} size="small" color="primary" variant="outlined" sx={{ fontWeight: 900 }} />
             </Stack>
         );
     };
@@ -617,7 +640,15 @@ export default function ContractHistoryPage() {
         <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, minHeight: "100vh", bgcolor: "background.default" }}>
             <NavMenu />
 
-            <Box sx={{ flexGrow: 1, width: "100%", ml: { xs: 0, md: `${SIDEBAR_OFFSET}px` }, px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, md: 4 } }}>
+            <Box
+                sx={{
+                    flexGrow: 1,
+                    width: "100%",
+                    ml: { xs: 0, md: `${SIDEBAR_OFFSET}px` },
+                    px: { xs: 2, sm: 3, md: 4 },
+                    py: { xs: 2, md: 4 },
+                }}
+            >
                 <Container maxWidth="lg" disableGutters>
                     {/* HEADER */}
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2} alignItems={{ xs: "stretch", sm: "center" }} justifyContent="space-between" sx={{ mb: 2.5 }}>
@@ -652,6 +683,16 @@ export default function ContractHistoryPage() {
                                 placeholder={t("history.searchPlaceholder", { defaultValue: isVI ? "Tìm field/giá trị..." : "Search fields/values..." })}
                                 value={inputSearch}
                                 onChange={(e) => setInputSearch(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        if (!inputContractId.trim()) return;
+                                        applyParams({
+                                            contractId: inputContractId.trim(),
+                                            search: inputSearch.trim(),
+                                            pageNumber: 1,
+                                        });
+                                    }
+                                }}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -666,7 +707,18 @@ export default function ContractHistoryPage() {
                                 loading={isLoadingContracts}
                                 options={contracts}
                                 value={selectedContract}
-                                onChange={(_, v: any | null) => setInputContractId(v ? String(v.id) : "")}
+                                onChange={(_, v: any | null) => {
+                                    const nextId = v ? String(v.id) : "";
+                                    setInputContractId(nextId);
+
+                                    if (nextId) {
+                                        applyParams({
+                                            contractId: nextId,
+                                            search: inputSearch.trim(),
+                                            pageNumber: 1,
+                                        });
+                                    }
+                                }}
                                 getOptionLabel={(c: any) => (c ? `${c.contractNumber ?? ""} — ${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() : "")}
                                 isOptionEqualToValue={(opt: any, val: any) => String(opt?.id) === String(val?.id)}
                                 renderInput={(params) => (
@@ -756,7 +808,7 @@ export default function ContractHistoryPage() {
                                 </Stack>
                             )}
 
-                            {/* DESKTOP UI */}
+                            {/* DESKTOP */}
                             {enabled && !isLoading && !isError && clientFilteredGroups.length > 0 && !isMobile && (
                                 <TableContainer sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.35)}` }}>
                                     <Table size="medium">
@@ -778,7 +830,6 @@ export default function ContractHistoryPage() {
                                         <TableBody>
                                             {clientFilteredGroups.map((g) => {
                                                 const open = !!expandedIds[g.historyId];
-                                                const hasNoDiff = g.changes.some((c) => c.kind === "nodiff");
                                                 const hasPlain = g.changes.some((c) => c.kind === "plain");
 
                                                 return (
@@ -804,10 +855,13 @@ export default function ContractHistoryPage() {
                                                                     <Chip
                                                                         size="small"
                                                                         label={buildSummary(g.changes)}
-                                                                        sx={{ fontWeight: 900, maxWidth: 520, "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }}
+                                                                        sx={{
+                                                                            fontWeight: 900,
+                                                                            maxWidth: 520,
+                                                                            "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+                                                                        }}
                                                                     />
                                                                     {hasPlain ? <Chip label="PLAIN" size="small" color="info" variant="outlined" /> : null}
-                                                                    {hasNoDiff ? <Chip label="NO DIFF" size="small" color="warning" variant="outlined" /> : null}
                                                                 </Stack>
                                                             </TableCell>
 
@@ -853,12 +907,11 @@ export default function ContractHistoryPage() {
                                 </TableContainer>
                             )}
 
-                            {/* MOBILE UI */}
+                            {/* MOBILE */}
                             {enabled && !isLoading && !isError && clientFilteredGroups.length > 0 && isMobile && (
                                 <Stack spacing={1.2}>
                                     {clientFilteredGroups.map((g) => {
                                         const open = !!expandedIds[g.historyId];
-                                        const hasNoDiff = g.changes.some((c) => c.kind === "nodiff");
                                         const hasPlain = g.changes.some((c) => c.kind === "plain");
 
                                         return (
@@ -887,7 +940,6 @@ export default function ContractHistoryPage() {
                                                     <Stack direction="row" alignItems="center" gap={1} sx={{ flexWrap: "wrap" }}>
                                                         <Chip label={buildSummary(g.changes)} size="small" sx={{ fontWeight: 900 }} />
                                                         {hasPlain ? <Chip label="PLAIN" size="small" color="info" variant="outlined" /> : null}
-                                                        {hasNoDiff ? <Chip label="NO DIFF" size="small" color="warning" variant="outlined" /> : null}
                                                     </Stack>
 
                                                     <Collapse in={open} timeout="auto" unmountOnExit>
@@ -932,8 +984,8 @@ export default function ContractHistoryPage() {
                                         <Typography variant="body2" color="text.secondary">
                                             {t("history.note", {
                                                 defaultValue: isVI
-                                                    ? "Nếu bạn thấy “NO DIFF”, nghĩa là old/new snapshot giống nhau. Backend phải log đúng snapshot trước/sau update."
-                                                    : "If you see “NO DIFF”, it means old/new snapshots are identical. Backend must log before/after values correctly.",
+                                                    ? "FE đã ẩn record 'No field changes' (nodiff) để tránh trùng dòng. Nếu vẫn bị trùng, backend đang log 2 lần."
+                                                    : "FE hides 'No field changes' (nodiff) records to avoid duplicates. If duplication persists, backend logs twice.",
                                             })}
                                         </Typography>
                                     </Box>

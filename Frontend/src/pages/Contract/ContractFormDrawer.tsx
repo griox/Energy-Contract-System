@@ -10,6 +10,7 @@ import {
     Divider,
     CircularProgress,
     Stack,
+    Tooltip,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
@@ -34,34 +35,74 @@ type FormState = {
     companyName: string;
     bankAccountNumber: string;
     startDate: string; // yyyy-mm-dd
-    endDate: string; // yyyy-mm-dd
-    resellerId: string; // select string
-    addressId: string; // select string
+    endDate: string;   // yyyy-mm-dd
+    resellerId: string;
+    addressId: string;
 };
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
 
 // ====== LIMITS ======
-const MAX_FULLNAME = 50;     // ✅ yêu cầu của bạn: first + space + last <= 50
+const MAX_FULLNAME = 50;
 const MAX_EMAIL = 100;
 const MIN_PHONE_DIGITS = 9;
-const MAX_PHONE_DIGITS = 10; // ✅ theo yêu cầu bạn
+const MAX_PHONE_DIGITS = 10;
 const MAX_COMPANY = 100;
-const MAX_BANK = 20;         // ✅ theo yêu cầu bạn
+const MAX_BANK = 20;
 
 // ====== VALIDATORS ======
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// ✅ Tên: chỉ CHỮ (unicode) + space + ' + -
 const PERSON_NAME_ALLOWED = /^[\p{L}\s'-]+$/u;
 
-function toDateInputValue(iso?: string) {
-    if (!iso) return "";
-    return String(iso).split("T")[0] ?? "";
+function pad2(n: number) {
+    return String(n).padStart(2, "0");
 }
 
-function parseLocalDate(dateStr: string) {
-    return new Date(`${dateStr}T00:00:00`);
+/**
+ * ISO (có timezone) -> yyyy-mm-dd theo LOCAL timezone (fix lệch -1 ngày khi Edit)
+ */
+function isoToLocalDateInput(iso?: string | null) {
+    if (!iso) return "";
+    const s = String(iso).trim();
+    if (!s) return "";
+
+    // nếu backend trả thẳng "YYYY-MM-DD"
+    const m = s.match(/^\d{4}-\d{2}-\d{2}$/);
+    if (m) return m[0];
+
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) {
+        const m2 = s.match(/^\d{4}-\d{2}-\d{2}/);
+        return m2 ? m2[0] : "";
+    }
+
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * yyyy-mm-dd -> ISO tại 00:00:00Z (UTC midnight) để backend lưu không lệch ngày
+ */
+function dateInputToUtcIso(dateStr: string) {
+    const s = (dateStr || "").trim();
+    if (!s) return "";
+    const parts = s.split("-").map((x) => Number(x));
+    if (parts.length !== 3) return "";
+    const [y, m, d] = parts;
+    if (!y || !m || !d) return "";
+    const utc = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+    return utc.toISOString();
+}
+
+function isValidDateInput(dateStr: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    if (!y || !m || !d) return false;
+    const utc = new Date(Date.UTC(y, m - 1, d));
+    return (
+        utc.getUTCFullYear() === y &&
+        utc.getUTCMonth() === m - 1 &&
+        utc.getUTCDate() === d
+    );
 }
 
 function countDigits(s: string) {
@@ -75,7 +116,6 @@ function fullNameLength(firstName?: string, lastName?: string) {
     return f.length + (f && l ? 1 : 0) + l.length;
 }
 
-// sanitize tên: bỏ ký tự lạ, gom space
 function sanitizePersonName(raw: string) {
     let s = String(raw ?? "");
     s = s.replace(/\s+/g, " ");
@@ -103,9 +143,7 @@ function sanitizeCompany(raw: string) {
 }
 
 /**
- * ✅ enforce tổng fullname <= 50
- * - Khi sửa firstName: cắt firstName theo lastName hiện tại
- * - Khi sửa lastName: cắt lastName theo firstName hiện tại
+ * enforce tổng fullname <= 50
  */
 function enforceFullNameLimit(
     _field: "firstName" | "lastName",
@@ -115,14 +153,80 @@ function enforceFullNameLimit(
     const other = (otherFieldValue ?? "").trim();
     let current = (incoming ?? "").trim();
 
-    // nếu field đang gõ có ký tự và other cũng có => có 1 dấu cách
     const space = current && other ? 1 : 0;
-
     const allowed = MAX_FULLNAME - other.length - space;
-    if (allowed <= 0) return ""; // không còn chỗ
 
+    if (allowed <= 0) return "";
     if (current.length > allowed) current = current.slice(0, allowed);
     return current;
+}
+
+// ✅ Pure validator: KHÔNG setState ở đây
+function getErrors(next: FormState): FieldErrors {
+    const e: FieldErrors = {};
+
+    const fn = next.firstName.trim();
+    const ln = next.lastName.trim();
+
+    if (!fn) e.firstName = "First Name is required";
+    else if (!PERSON_NAME_ALLOWED.test(fn))
+        e.firstName = "First Name only allows letters, space, ' and -";
+
+    if (!ln) e.lastName = "Last Name is required";
+    else if (!PERSON_NAME_ALLOWED.test(ln))
+        e.lastName = "Last Name only allows letters, space, ' and -";
+
+    if (fn && ln) {
+        const len = fullNameLength(fn, ln);
+        if (len > MAX_FULLNAME) {
+            e.firstName = `Full name (First + Last) max ${MAX_FULLNAME} characters`;
+            e.lastName = `Full name (First + Last) max ${MAX_FULLNAME} characters`;
+        }
+    }
+
+    const em = next.email.trim();
+    if (!em) e.email = "Email is required";
+    else if (em.length > MAX_EMAIL) e.email = `Email max ${MAX_EMAIL} characters`;
+    else if (!EMAIL_REGEX.test(em)) e.email = "Invalid Email";
+
+    const phone = next.phone.trim();
+    if (!phone) e.phone = "Phone is required";
+    else {
+        const digits = countDigits(phone);
+        if (digits < MIN_PHONE_DIGITS)
+            e.phone = `Phone must contain at least ${MIN_PHONE_DIGITS} digits`;
+        else if (digits > MAX_PHONE_DIGITS)
+            e.phone = `Phone must contain at most ${MAX_PHONE_DIGITS} digits`;
+    }
+
+    const company = next.companyName.trim();
+    if (!company) e.companyName = "Company Name is required";
+    else if (company.length > MAX_COMPANY)
+        e.companyName = `Company Name max ${MAX_COMPANY} characters`;
+
+    const bank = next.bankAccountNumber.trim();
+    if (!bank) e.bankAccountNumber = "Bank Account Number is required";
+    else if (bank.length > MAX_BANK) e.bankAccountNumber = `Bank Account Number max ${MAX_BANK} characters`;
+    else if (!/^\d+$/.test(bank)) e.bankAccountNumber = "Bank Account Number must contain digits only";
+
+    if (!next.resellerId || Number(next.resellerId) <= 0) e.resellerId = "Reseller is required";
+    if (!next.addressId || Number(next.addressId) <= 0) e.addressId = "Address is required";
+
+    if (!next.startDate) e.startDate = "Start Date is required";
+    else if (!isValidDateInput(next.startDate)) e.startDate = "Invalid Start Date";
+
+    if (!next.endDate) e.endDate = "End Date is required";
+    else if (!isValidDateInput(next.endDate)) e.endDate = "Invalid End Date";
+
+    if (next.startDate && next.endDate && isValidDateInput(next.startDate) && isValidDateInput(next.endDate)) {
+        const s = new Date(dateInputToUtcIso(next.startDate));
+        const en = new Date(dateInputToUtcIso(next.endDate));
+        if (!Number.isNaN(s.getTime()) && !Number.isNaN(en.getTime()) && en < s) {
+            e.endDate = "End Date must be greater than or equal to Start Date";
+        }
+    }
+
+    return e;
 }
 
 export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess }: Props) {
@@ -160,97 +264,21 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
         addressId: "",
     });
 
-    const [errors, setErrors] = useState<FieldErrors>({});
+    // ✅ để “chưa nhập gì” không đỏ
+    const [touched, setTouched] = useState<Partial<Record<keyof FormState, boolean>>>({});
+    const [submitted, setSubmitted] = useState(false);
 
-    const validate = (next: FormState) => {
-        const e: FieldErrors = {};
+    const allErrors = useMemo(() => getErrors(form), [form]);
+    const showError = (field: keyof FormState) => submitted || !!touched[field];
+    const fieldError = (field: keyof FormState) => (showError(field) ? allErrors[field] : undefined);
 
-        // ===== FULL NAME (combined <= 50) =====
-        const fn = next.firstName.trim();
-        const ln = next.lastName.trim();
-
-        if (!fn) e.firstName = "First Name is required";
-        else if (!PERSON_NAME_ALLOWED.test(fn)) e.firstName = "First Name only allows letters, space, ' and -";
-
-        if (!ln) e.lastName = "Last Name is required";
-        else if (!PERSON_NAME_ALLOWED.test(ln)) e.lastName = "Last Name only allows letters, space, ' and -";
-
-        if (fn && ln) {
-            const len = fullNameLength(fn, ln);
-            if (len > MAX_FULLNAME) {
-                // gắn lỗi cho cả 2 để người dùng thấy rõ
-                e.firstName = `Full name (First + Last) max ${MAX_FULLNAME} characters`;
-                e.lastName = `Full name (First + Last) max ${MAX_FULLNAME} characters`;
-            }
-        }
-
-        // ===== email =====
-        const em = next.email.trim();
-        if (!em) e.email = "Email is required";
-        else if (em.length > MAX_EMAIL) e.email = `Email max ${MAX_EMAIL} characters`;
-        else if (!EMAIL_REGEX.test(em)) e.email = "Invalid Email";
-
-        // ===== phone (digits only, 9..10 digits) =====
-        const phone = next.phone.trim();
-        if (!phone) e.phone = "Phone is required";
-        else {
-            const digits = countDigits(phone);
-            if (digits < MIN_PHONE_DIGITS) e.phone = `Phone must contain at least ${MIN_PHONE_DIGITS} digits`;
-            else if (digits > MAX_PHONE_DIGITS) e.phone = `Phone must contain at most ${MAX_PHONE_DIGITS} digits`;
-        }
-
-        // ===== company =====
-        const company = next.companyName.trim();
-        if (!company) e.companyName = "Company Name is required";
-        else if (company.length > MAX_COMPANY) e.companyName = `Company Name max ${MAX_COMPANY} characters`;
-
-        // ===== bank (digits-only, max 20) =====
-        const bank = next.bankAccountNumber.trim();
-        if (!bank) e.bankAccountNumber = "Bank Account Number is required";
-        else if (bank.length > MAX_BANK) e.bankAccountNumber = `Bank Account Number max ${MAX_BANK} characters`;
-        else if (!/^\d+$/.test(bank)) e.bankAccountNumber = "Bank Account Number must contain digits only";
-
-        // ===== reseller/address =====
-        if (!next.resellerId || Number(next.resellerId) <= 0) e.resellerId = "Reseller is required";
-        if (!next.addressId || Number(next.addressId) <= 0) e.addressId = "Address is required";
-
-        // ===== dates =====
-        if (!next.startDate) e.startDate = "Start Date is required";
-        if (!next.endDate) e.endDate = "End Date is required";
-
-        if (next.startDate) {
-            const d = parseLocalDate(next.startDate);
-            if (Number.isNaN(d.getTime())) e.startDate = "Invalid Start Date";
-        }
-        if (next.endDate) {
-            const d = parseLocalDate(next.endDate);
-            if (Number.isNaN(d.getTime())) e.endDate = "Invalid End Date";
-        }
-
-        if (next.startDate && next.endDate) {
-            const start = parseLocalDate(next.startDate);
-            const end = parseLocalDate(next.endDate);
-            if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end < start) {
-                e.endDate = "End Date must be greater than or equal to Start Date";
-            }
-        }
-
-        setErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
-    // ✅ chặn paste ký tự lạ
+    // chặn paste ký tự lạ
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
         const name = (e.target as HTMLInputElement).name as keyof FormState;
         const text = e.clipboardData.getData("text");
 
-        if (name === "bankAccountNumber") {
-            if (/\D/.test(text)) e.preventDefault();
-        }
-
-        if (name === "phone") {
-            if (/\D/.test(text)) e.preventDefault(); // digits-only
-        }
+        if (name === "bankAccountNumber" && /\D/.test(text)) e.preventDefault();
+        if (name === "phone" && /\D/.test(text)) e.preventDefault();
 
         if (name === "firstName" || name === "lastName") {
             try {
@@ -261,6 +289,11 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
         }
     };
 
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const name = e.target.name as keyof FormState;
+        setTouched((prev) => ({ ...prev, [name]: true }));
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const name = e.target.name as keyof FormState;
         let value = e.target.value;
@@ -268,7 +301,6 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
         setForm((prev) => {
             const next = { ...prev };
 
-            // ===== first/last with combined max 50 =====
             if (name === "firstName") {
                 value = sanitizePersonName(value);
                 value = enforceFullNameLimit("firstName", value, prev.lastName);
@@ -277,82 +309,38 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                 value = sanitizePersonName(value);
                 value = enforceFullNameLimit("lastName", value, prev.firstName);
                 next.lastName = value;
-            }
-
-            // ===== email =====
-            else if (name === "email") {
+            } else if (name === "email") {
                 value = sanitizeEmail(value);
                 next.email = value;
-            }
-
-            // ===== phone digits-only, max 10 digits =====
-            else if (name === "phone") {
-                value = value.replace(/\D/g, ""); // chỉ số
+            } else if (name === "phone") {
+                value = value.replace(/\D/g, "");
                 if (value.length > MAX_PHONE_DIGITS) value = value.slice(0, MAX_PHONE_DIGITS);
                 next.phone = value;
-            }
-
-            // ===== company =====
-            else if (name === "companyName") {
+            } else if (name === "companyName") {
                 value = sanitizeCompany(value);
                 next.companyName = value;
-            }
-
-            // ===== bank digits-only, max 20 =====
-            else if (name === "bankAccountNumber") {
+            } else if (name === "bankAccountNumber") {
                 value = value.replace(/\D/g, "");
                 if (value.length > MAX_BANK) value = value.slice(0, MAX_BANK);
                 next.bankAccountNumber = value;
-            }
-
-            // ===== other fields =====
-            else {
+            } else {
                 (next as any)[name] = value;
             }
 
-            validate(next);
             return next as FormState;
         });
     };
 
-    const canSubmit = useMemo(() => {
-        if (!form.firstName.trim()) return false;
-        if (!form.lastName.trim()) return false;
-
-        // ✅ full name combined
-        if (fullNameLength(form.firstName, form.lastName) > MAX_FULLNAME) return false;
-
-        if (!form.email.trim()) return false;
-        if (!form.phone.trim()) return false;
-        if (!form.companyName.trim()) return false;
-        if (!form.bankAccountNumber.trim()) return false;
-        if (!form.startDate || !form.endDate) return false;
-        if (!form.resellerId || Number(form.resellerId) <= 0) return false;
-        if (!form.addressId || Number(form.addressId) <= 0) return false;
-
-        if (
-            errors.firstName ||
-            errors.lastName ||
-            errors.email ||
-            errors.phone ||
-            errors.companyName ||
-            errors.bankAccountNumber ||
-            errors.startDate ||
-            errors.endDate ||
-            errors.resellerId ||
-            errors.addressId
-        ) return false;
-
-        return true;
-    }, [form, errors]);
+    const canSubmit = useMemo(() => Object.keys(allErrors).length === 0, [allErrors]);
 
     useEffect(() => {
         if (!open) return;
 
-        setErrors({});
+        setTouched({});
+        setSubmitted(false);
 
         if (!isEdit) {
-            const next: FormState = {
+            setForm({
                 firstName: "",
                 lastName: "",
                 email: "",
@@ -363,9 +351,7 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                 endDate: "",
                 resellerId: "",
                 addressId: "",
-            };
-            setForm(next);
-         
+            });
             return;
         }
 
@@ -373,25 +359,24 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
             const rawFirst = sanitizePersonName(contractData.firstName ?? "");
             const rawLast = sanitizePersonName(contractData.lastName ?? "");
 
-            // ✅ enforce combined max 50 cho data edit luôn
             const fixedFirst = enforceFullNameLimit("firstName", rawFirst, rawLast);
             const fixedLast = enforceFullNameLimit("lastName", rawLast, fixedFirst);
 
-            const next: FormState = {
+            setForm({
                 firstName: fixedFirst,
                 lastName: fixedLast,
                 email: sanitizeEmail(contractData.email ?? ""),
                 phone: String(contractData.phone ?? "").replace(/\D/g, "").slice(0, MAX_PHONE_DIGITS),
                 companyName: sanitizeCompany(contractData.companyName ?? ""),
                 bankAccountNumber: String(contractData.bankAccountNumber ?? "").replace(/\D/g, "").slice(0, MAX_BANK),
-                startDate: toDateInputValue(contractData.startDate),
-                endDate: toDateInputValue(contractData.endDate),
+
+                // ✅ FIX: ISO -> LOCAL yyyy-mm-dd (không còn bị -1 ngày)
+                startDate: isoToLocalDateInput(contractData.startDate),
+                endDate: isoToLocalDateInput(contractData.endDate),
+
                 resellerId: contractData.resellerId != null ? String(contractData.resellerId) : "",
                 addressId: contractData.addressId != null ? String(contractData.addressId) : "",
-            };
-
-            setForm(next);
-            validate(next);
+            });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, isEdit, contractData]);
@@ -399,8 +384,8 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
     const loading = resellerLoading || addressLoading || (isEdit && contractLoading);
 
     const handleSubmit = () => {
-        const ok = validate(form);
-        if (!ok) return;
+        setSubmitted(true);
+        if (Object.keys(allErrors).length > 0) return;
 
         const payload: any = {
             firstName: form.firstName.trim(),
@@ -412,8 +397,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
             resellerId: Number(form.resellerId) || 0,
             addressId: Number(form.addressId) || 0,
 
-            startDate: form.startDate ? parseLocalDate(form.startDate).toISOString() : new Date().toISOString(),
-            endDate: form.endDate ? parseLocalDate(form.endDate).toISOString() : new Date().toISOString(),
+            // ✅ FIX: yyyy-mm-dd -> ISO UTC midnight (backend lưu không lệch)
+            startDate: form.startDate ? dateInputToUtcIso(form.startDate) : null,
+            endDate: form.endDate ? dateInputToUtcIso(form.endDate) : null,
 
             pdfLink: contractData?.pdfLink || "",
             contractNumber: contractData?.contractNumber || "AUTO-" + Date.now(),
@@ -439,7 +425,10 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
         };
 
         if (isEdit && id) {
-            updateMutation.mutate({ id: Number(id), data: payload } as any, { onSuccess: onDone, onError: onFail });
+            updateMutation.mutate({ id: Number(id), data: payload } as any, {
+                onSuccess: onDone,
+                onError: onFail,
+            });
         } else {
             createMutation.mutate(payload, { onSuccess: onDone, onError: onFail });
         }
@@ -479,10 +468,10 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="firstName"
                             value={form.firstName}
                             onChange={handleChange}
+                            onBlur={handleBlur}
                             onPaste={handlePaste}
-                            error={!!errors.firstName}
-                            helperText={errors.firstName}
-                            // để user không paste 1 phát dài quá (nhưng chính vẫn là enforce combined)
+                            error={!!fieldError("firstName")}
+                            helperText={fieldError("firstName")}
                             inputProps={{ maxLength: MAX_FULLNAME }}
                             fullWidth
                         />
@@ -492,9 +481,10 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="lastName"
                             value={form.lastName}
                             onChange={handleChange}
+                            onBlur={handleBlur}
                             onPaste={handlePaste}
-                            error={!!errors.lastName}
-                            helperText={errors.lastName}
+                            error={!!fieldError("lastName")}
+                            helperText={fieldError("lastName")}
                             inputProps={{ maxLength: MAX_FULLNAME }}
                             fullWidth
                         />
@@ -504,8 +494,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="email"
                             value={form.email}
                             onChange={handleChange}
-                            error={!!errors.email}
-                            helperText={errors.email}
+                            onBlur={handleBlur}
+                            error={!!fieldError("email")}
+                            helperText={fieldError("email")}
                             inputProps={{ maxLength: MAX_EMAIL }}
                             fullWidth
                         />
@@ -515,9 +506,10 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="phone"
                             value={form.phone}
                             onChange={handleChange}
+                            onBlur={handleBlur}
                             onPaste={handlePaste}
-                            error={!!errors.phone}
-                            helperText={errors.phone}
+                            error={!!fieldError("phone")}
+                            helperText={fieldError("phone")}
                             inputProps={{ inputMode: "numeric", maxLength: MAX_PHONE_DIGITS }}
                             fullWidth
                         />
@@ -529,8 +521,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                                 name="startDate"
                                 value={form.startDate}
                                 onChange={handleChange}
-                                error={!!errors.startDate}
-                                helperText={errors.startDate}
+                                onBlur={handleBlur}
+                                error={!!fieldError("startDate")}
+                                helperText={fieldError("startDate")}
                                 InputLabelProps={{ shrink: true }}
                                 fullWidth
                             />
@@ -541,8 +534,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                                 name="endDate"
                                 value={form.endDate}
                                 onChange={handleChange}
-                                error={!!errors.endDate}
-                                helperText={errors.endDate}
+                                onBlur={handleBlur}
+                                error={!!fieldError("endDate")}
+                                helperText={fieldError("endDate")}
                                 InputLabelProps={{ shrink: true }}
                                 fullWidth
                             />
@@ -553,8 +547,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="companyName"
                             value={form.companyName}
                             onChange={handleChange}
-                            error={!!errors.companyName}
-                            helperText={errors.companyName}
+                            onBlur={handleBlur}
+                            error={!!fieldError("companyName")}
+                            helperText={fieldError("companyName")}
                             inputProps={{ maxLength: MAX_COMPANY }}
                             fullWidth
                         />
@@ -564,9 +559,10 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="bankAccountNumber"
                             value={form.bankAccountNumber}
                             onChange={handleChange}
+                            onBlur={handleBlur}
                             onPaste={handlePaste}
-                            error={!!errors.bankAccountNumber}
-                            helperText={errors.bankAccountNumber}
+                            error={!!fieldError("bankAccountNumber")}
+                            helperText={fieldError("bankAccountNumber")}
                             inputProps={{ inputMode: "numeric", maxLength: MAX_BANK }}
                             fullWidth
                         />
@@ -577,8 +573,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="resellerId"
                             value={form.resellerId}
                             onChange={handleChange}
-                            error={!!errors.resellerId}
-                            helperText={errors.resellerId}
+                            onBlur={handleBlur}
+                            error={!!fieldError("resellerId")}
+                            helperText={fieldError("resellerId")}
                             fullWidth
                         >
                             {resellers.map((r: any) => (
@@ -594,8 +591,9 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                             name="addressId"
                             value={form.addressId}
                             onChange={handleChange}
-                            error={!!errors.addressId}
-                            helperText={errors.addressId}
+                            onBlur={handleBlur}
+                            error={!!fieldError("addressId")}
+                            helperText={fieldError("addressId")}
                             fullWidth
                         >
                             {addresses.map((a: any) => (
@@ -605,6 +603,12 @@ export default function ContractFormDrawer({ open, mode, id, onClose, onSuccess 
                                 </MenuItem>
                             ))}
                         </TextField>
+
+                        <Tooltip title="Fix timezone: Edit không bị -1 ngày, Submit lưu UTC midnight">
+                            <Typography variant="caption" color="text.secondary">
+                                ✅ Date handling fixed (timezone-safe)
+                            </Typography>
+                        </Tooltip>
                     </Stack>
                 )}
 
