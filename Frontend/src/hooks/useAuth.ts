@@ -32,7 +32,7 @@ export const useLogin = () => {
         mutationFn: ({ username, password }: any) => authService.signIn(username, password),
         onSuccess: (data) => {
             setAccessToken(data.accessToken)
-
+            
             if (data.user) {
                 queryClient.setQueryData(["user"], data.user)
             }

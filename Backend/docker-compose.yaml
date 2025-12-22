@@ -124,7 +124,6 @@ services:
 
   pdf-service:
     image: huyngoinfo/energy-pdf-service:latest
-    platform: linux/amd64
     build:
       context: .
       dockerfile: src/PdfService/Api/Dockerfile
@@ -152,7 +151,6 @@ services:
   
   auth-service:
     image: huyngoinfo/energy-auth-service:latest
-    platform: linux/amd64
     build:
       context: .
       dockerfile: src/AuthService/Api/Dockerfile
@@ -173,7 +171,6 @@ services:
 
   email-api:
     image: huyngoinfo/energy-email-api:latest
-    platform: linux/amd64
     build:
       context: .
       dockerfile: src/EmailService/Api/Dockerfile
@@ -187,7 +184,6 @@ services:
 
   invoice-api:
     image: huyngoinfo/energy-invoice-api:latest
-    platform: linux/amd64
     build:
       context: .
       dockerfile: src/InvoiceService/Api/Dockerfile

@@ -4,7 +4,7 @@ using MassTransit;                  // 1. Dùng cho RabbitMQ
 using Shared.Events;                // 2. Dùng cho Event
 using Microsoft.AspNetCore.Http;    // 3. Dùng để đọc Token
 using System.Security.Claims;       // 4. Dùng để đọc Claims
-
+using Domain.Enums;
 namespace Application.Features.Orders.Commands.CreateOrder
 {
     public class CreateOrderHandler
@@ -31,14 +31,14 @@ namespace Application.Features.Orders.Commands.CreateOrder
             // 1. Logic lưu Order vào Database (Giữ nguyên)
             var order = new Order
             {
-                OrderNumber = request.OrderNumber,
+              
                 OrderType = request.OrderType,
-                Status = request.Status,
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
                 TopupFee = request.TopupFee,
                 ContractId = request.ContractId
             };
+            order.OrderNumber = Guid.NewGuid().ToString("N")[..8].ToUpper();
 
             await _orderRepository.AddAsync(order);
             

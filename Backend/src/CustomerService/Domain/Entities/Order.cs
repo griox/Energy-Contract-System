@@ -8,7 +8,7 @@ public class Order : BaseEntity
 {
     public string OrderNumber { get; set; } = string.Empty;
     public int OrderType { get; set; } // Enum: Gas hoặc Electricity
-    public int Status { get; set; }  // Enum
+    public int Status { get; set; } = 2; // Enum
     
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
