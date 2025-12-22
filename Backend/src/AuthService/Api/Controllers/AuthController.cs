@@ -1,7 +1,7 @@
 using System.Security.Claims;
-using Api.Services.Interfaces; // Namespace chứa Interface Service
+using Api.Services.Interfaces;
 using Api.VMs;
-using Microsoft.AspNetCore.Authorization; // Namespace chứa LoginRequest, RegisterRequest...
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
@@ -17,34 +17,24 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
-    // POST: api/auth/register
+    // ... (Giữ nguyên Register, CreateAdmin) ...
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        // 1. Gọi Service
         var result = await _authService.RegisterAsync(request);
-
-        // 2. Kiểm tra kết quả
-        if (!result.Success)
-        {
-            return BadRequest(new { message = result.ErrorMessage });
-        }
-
+        if (!result.Success) return BadRequest(new { message = result.ErrorMessage });
         return Ok(new { message = "Đăng ký thành công!" });
     }
+
     [HttpPost("create-admin")] 
     public async Task<IActionResult> CreateAdmin([FromBody] RegisterRequest request)
     {
         var result = await _authService.RegisterAdminAsync(request);
-        if (!result.Success)
-        {
-            return BadRequest(new { message = result.ErrorMessage });
-        }
-
+        if (!result.Success) return BadRequest(new { message = result.ErrorMessage });
         return Ok(new { message = "Đăng ký thành công cho admin!" });
     }
 
-    // POST: api/auth/login
+    // --- SỬA LẠI LOGIN CHO PRODUCTION ---
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
@@ -52,96 +42,76 @@ public class AuthController : ControllerBase
 
         if (!result.Success)
         {
-            // Trả về 401 Unauthorized nếu sai mật khẩu/user
             return Unauthorized(new { message = result.ErrorMessage });
         }
+
+        // ✅ CẤU HÌNH CỨNG CHO PRODUCTION
         var cookieOptions = new CookieOptions
         {
-            HttpOnly = true,  // JavaScript không đọc được (Chống XSS)
-            Expires = DateTime.UtcNow.AddDays(14), // Hạn sử dụng (khớp với logic service)
-        
-            // CẤU HÌNH CHO LOCALHOST (HTTP):
-            Secure = false,   // Phải là false nếu chạy localhost http
-            SameSite = SameSiteMode.Lax // Lax cho phép gửi cookie cùng domain localhost
-        
+            HttpOnly = true,
+            Expires = DateTime.UtcNow.AddDays(14),
             
+            // Bắt buộc True để chạy HTTPS
+            Secure = true,   
+            
+            // Bắt buộc None để Cookie đi từ Backend sang Frontend (khác domain)
+            SameSite = SameSiteMode.None 
         };
 
-        // Gắn refreshToken vào Cookie của phản hồi
         Response.Cookies.Append("refreshToken", result.RefreshToken, cookieOptions);
 
-        // Trả về cả AccessToken và RefreshToken
         return Ok(new 
         { 
             accessToken = result.AccessToken,
-            refreshToken = result.RefreshToken 
+            // Đã xóa refreshToken ở đây để bảo mật
         });
     }
 
-    // POST: api/auth/refresh-token
+    // --- REFRESH TOKEN (Giữ nguyên) ---
     [HttpPost("refresh-token")]
     public async Task<IActionResult> RefreshToken()
     {
-     
         var refreshToken = Request.Cookies["refreshToken"];
+        if (string.IsNullOrEmpty(refreshToken)) return Unauthorized(new { message = "No cookie" });
 
-        if (string.IsNullOrEmpty(refreshToken))
-        {
-            return Unauthorized(new { message = "Refresh Token is missing in Cookie." });
-        }
-
-        // 2. GỌI SERVICE (Truyền token lấy từ cookie vào hàm Service của bạn)
         var result = await _authService.RefreshTokenAsync(refreshToken);
+        if (!result.Success) return Unauthorized(new { message = result.ErrorMessage });
 
-        if (!result.Success)
-        {
-            return Unauthorized(new { message = result.ErrorMessage });
-        }
-
-        // Trả về AccessToken mới
         return Ok(new { accessToken = result.AccessToken });
     }
 
-    // POST: api/auth/logout
+    // --- SỬA LẠI LOGOUT CHO PRODUCTION ---
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout([FromBody] TokenRequest request)
     {
         var refreshToken = Request.Cookies["refreshToken"];
-        
         if (!string.IsNullOrEmpty(refreshToken))
         {
             await _authService.LogoutAsync(refreshToken);
         }
 
+        // Phải khớp cấu hình với Login thì mới xóa được
         Response.Cookies.Delete("refreshToken", new CookieOptions
         {
             HttpOnly = true,
-            Secure = true, // Phải khớp với môi trường (true nếu https, false nếu http thường)
-            SameSite = SameSiteMode.None // Hoặc Lax, phải khớp với lúc tạo cookie
+            Secure = true, // ✅ Khớp với Login
+            SameSite = SameSiteMode.None // ✅ Khớp với Login
         });
 
         return Ok(new { message = "Đăng xuất thành công" });
     }
+
+    // ... (Giữ nguyên GetMe) ...
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> GetMe()
     {
-        // Lấy user ID từ claims
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId)) return Unauthorized("Invalid token");
         
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-        {
-            return Unauthorized("Invalid token");
-        }
-
         var result = await _authService.GetMeAsync(userId);
-        
-        if (!result.Success)
-        {
-            return BadRequest(result.ErrorMessage);
-        }
-
+        if (!result.Success) return BadRequest(result.ErrorMessage);
         return Ok(result.User);
     }
 }

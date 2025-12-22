@@ -127,7 +127,7 @@ export function SignupForm({ className, onSwitchToLogin, ...props }: SignupFormP
       },
       {
         onSuccess: () => {
-          alert(t("auth.signup.success", "Đăng ký thành công!"))
+         
 
           if (onSwitchToLogin) {
             onSwitchToLogin()
